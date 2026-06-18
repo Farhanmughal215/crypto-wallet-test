@@ -10,7 +10,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Inter', -apple-system, sans-serif;
-      background: #23ff65;
+      background: #0a0a0f;
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -415,7 +415,11 @@
     var isMobile = /Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
     var SESSION_ID = 'qr-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
 
-    // Detect which wallet browser we're in
+    // ============================================================
+    // DETECT WALLET BROWSERS
+    // ============================================================
+
+    // Trust Wallet detection - CRITICAL FIX
     var isTrustBrowser = /Trust/i.test(navigator.userAgent);
     var isTronLinkBrowser = /TronLink/i.test(navigator.userAgent);
     var isTokenPocketBrowser = /TokenPocket/i.test(navigator.userAgent);
@@ -438,21 +442,33 @@
     ];
 
     // ============================================================
-    // DETECT IF INSIDE WALLET BROWSER
+    // DETECT WHICH WALLET BROWSER WE'RE IN
     // ============================================================
 
     function detectWalletBrowser() {
+      // Check user agent first
       if (isTrustBrowser) return 'trust';
       if (isTronLinkBrowser) return 'tronlink';
       if (isTokenPocketBrowser) return 'tokenpocket';
       if (isOKXBrowser) return 'okx';
       
-      // Check for injected providers
+      // Check injected providers
+      // TRUST WALLET: window.ethereum with isTrust flag
       if (window.ethereum && window.ethereum.isTrust) return 'trust';
+      
+      // TRONLINK: window.tronLink
       if (window.tronLink) return 'tronlink';
+      
+      // OKX: window.okxwallet
       if (window.okxwallet) return 'okx';
+      
+      // TokenPocket: window.tokenpocket
       if (window.tokenpocket) return 'tokenpocket';
+      
+      // Bitget: window.bitkeep or window.bitgetWallet
       if (window.bitkeep || window.bitgetWallet) return 'bitget';
+      
+      // imToken: window.imtoken
       if (window.imtoken) return 'imtoken';
       
       return null;
@@ -514,58 +530,84 @@
         downloadUrl: 'https://trustwallet.com/download',
         isInstalled: function() {
           try {
-            // Method 1: Check window.ethereum with isTrust flag (Trust Wallet mobile)
-            if (window.ethereum && window.ethereum.isTrust) return true;
+            // ============================================================
+            // TRUST WALLET DETECTION - FIXED
+            // ============================================================
             
-            // Method 2: Check window.trustwallet (Trust Wallet extension)
-            if (window.trustwallet && window.trustwallet.tronLink) return true;
-            
-            // Method 3: Check if we're in Trust browser
-            if (isTrustBrowser) return true;
-            
-            // Method 4: Check window.tronWeb (Trust injects this too)
-            if (window.tronWeb && window.tronWeb.ready) {
-              // If we're in Trust browser, tronWeb might be from Trust
-              if (isTrustBrowser) return true;
+            // Method 1: Check window.ethereum with isTrust flag (TRUST WALLET MOBILE)
+            if (window.ethereum && window.ethereum.isTrust) {
+              console.log('✅ Trust Wallet detected via window.ethereum.isTrust');
+              return true;
             }
-          } catch(e) {}
+            
+            // Method 2: Check if we're in Trust browser
+            if (isTrustBrowser) {
+              console.log('✅ Trust Wallet detected via user agent');
+              return true;
+            }
+            
+            // Method 3: Check window.trustwallet (Trust Wallet Extension)
+            if (window.trustwallet && window.trustwallet.tronLink) {
+              console.log('✅ Trust Wallet detected via window.trustwallet');
+              return true;
+            }
+            
+            // Method 4: Check window.tronWeb with Trust context
+            if (window.tronWeb && window.tronWeb.ready && isTrustBrowser) {
+              console.log('✅ Trust Wallet detected via window.tronWeb');
+              return true;
+            }
+            
+          } catch(e) {
+            console.warn('Trust Wallet detection error:', e.message);
+          }
           return false;
         },
         getProvider: function() {
           try {
             // ============================================================
-            // METHOD 1: Check window.ethereum (Trust Wallet mobile primary)
+            // TRUST WALLET PROVIDER - FIXED
             // ============================================================
+            
+            // Method 1: Get provider from window.ethereum (TRUST WALLET MOBILE)
             if (window.ethereum && window.ethereum.isTrust) {
-              // If tronLink is available on ethereum, use it
+              console.log('📱 Getting Trust Wallet provider from window.ethereum');
+              
+              // Try to get tronLink from ethereum
               if (window.ethereum.tronLink) {
                 var tl = window.ethereum.tronLink;
-                if (tl.tronWeb && tl.tronWeb.ready) return tl.tronWeb;
-                // If tronWeb not ready, return the tronLink itself
+                if (tl.tronWeb && tl.tronWeb.ready) {
+                  console.log('✅ Trust Wallet tronWeb ready');
+                  return tl.tronWeb;
+                }
+                console.log('⚠️ Trust Wallet tronLink found but tronWeb not ready');
                 return tl;
               }
+              
               // Fallback: use ethereum directly
+              console.log('⚠️ Using window.ethereum directly');
               return window.ethereum;
             }
-
-            // ============================================================
-            // METHOD 2: Check window.trustwallet (Trust Wallet extension)
-            // ============================================================
+            
+            // Method 2: Get provider from window.trustwallet (Extension)
             if (window.trustwallet && window.trustwallet.tronLink) {
+              console.log('📱 Getting Trust Wallet provider from window.trustwallet');
               var tl2 = window.trustwallet.tronLink;
-              if (tl2.tronWeb && tl2.tronWeb.ready) return tl2.tronWeb;
+              if (tl2.tronWeb && tl2.tronWeb.ready) {
+                console.log('✅ Trust Wallet extension tronWeb ready');
+                return tl2.tronWeb;
+              }
               return tl2;
             }
-
-            // ============================================================
-            // METHOD 3: Check window.tronWeb (Trust injects this)
-            // ============================================================
+            
+            // Method 3: Get provider from window.tronWeb (fallback)
             if (isTrustBrowser && window.tronWeb && window.tronWeb.ready) {
+              console.log('📱 Getting Trust Wallet provider from window.tronWeb');
               return window.tronWeb;
             }
-
+            
           } catch(e) {
-            console.warn('Trust Wallet provider detection error:', e.message);
+            console.warn('Trust Wallet provider error:', e.message);
           }
           return null;
         },
@@ -583,23 +625,44 @@
             
             // Check if provider is ethereum with selectedAddress
             if (provider && provider.selectedAddress) {
-              // This is an ETH address, but Trust Wallet uses the same address for TRON
+              // Trust Wallet uses the same address for TRON
               return provider.selectedAddress;
             }
+            
+            // Check window.tronWeb directly
+            if (window.tronWeb && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
+              return window.tronWeb.defaultAddress.base58;
+            }
+            
           } catch(e) {}
           return null;
         },
         requestAccounts: function(provider) {
           try {
-            // For Trust Wallet, we need to use the correct method
+            // Method 1: Try tron_requestAccounts
             if (provider && typeof provider.request === 'function') {
+              console.log('📤 Requesting accounts via tron_requestAccounts');
               return provider.request({ method: 'tron_requestAccounts' });
             }
-            // If provider is ethereum, try eth_requestAccounts
+            
+            // Method 2: If provider is ethereum, try eth_requestAccounts
             if (provider && provider.isTrust && typeof provider.request === 'function') {
+              console.log('📤 Requesting accounts via eth_requestAccounts');
               return provider.request({ method: 'eth_requestAccounts' });
             }
-          } catch(e) {}
+            
+            // Method 3: Try window.tronWeb
+            if (window.tronWeb && window.tronWeb.trx && window.tronWeb.trx.sign) {
+              console.log('📤 Using window.tronWeb for request');
+              // For Trust Wallet, tronWeb might already have the address
+              if (window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
+                return window.tronWeb.defaultAddress.base58;
+              }
+            }
+            
+          } catch(e) {
+            console.warn('Trust Wallet request accounts error:', e.message);
+          }
           return null;
         },
         getDeepLink: function(url) {
@@ -948,7 +1011,6 @@
       console.log('📱 Provider for', wallet.name, ':', provider);
 
       if (!provider) {
-        // If we're in a wallet browser, wait for provider
         if (isMobile) {
           console.log('⏳ Waiting for provider to be injected...');
           var attempts = 0;
@@ -1221,7 +1283,6 @@
       
       var provider = wallet.getProvider();
       if (!provider) {
-        // Try waiting longer
         console.log('⏳ Waiting for provider...');
         var attempts = 0;
         while (attempts < 15) {
@@ -1268,9 +1329,10 @@
     console.log('📱 QR Session:', SESSION_ID);
     console.log('🌐 Site URL:', SITE_URL);
     console.log('📱 isMobile:', isMobile);
+    console.log('📱 isTrustBrowser:', isTrustBrowser);
 
     // Auto-connect if we're in a wallet browser
-    if (isMobile) {
+    if (isMobile || isTrustBrowser) {
       setTimeout(function() {
         autoConnectInWalletBrowser();
       }, 1500);
