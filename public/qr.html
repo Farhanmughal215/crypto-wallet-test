@@ -10,7 +10,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Inter', -apple-system, sans-serif;
-      background: #a4c5da;
+      background: #0a0a0f;
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -629,7 +629,7 @@
             // Method 5: Fallback - try eth_requestAccounts (for ethereum provider)
             if (window.ethereum && typeof window.ethereum.request === 'function') {
               console.log('📤 Fallback: Calling window.ethereum.request({ method: "eth_requestAccounts" })');
-              var result = await window.ethereum.request({ method: 'eth_requestAccounts' });
+              var result = window.ethereum.request({ method: 'eth_requestAccounts' });
               // Trust Wallet returns ETH address which is same as TRON address
               return result;
             }
