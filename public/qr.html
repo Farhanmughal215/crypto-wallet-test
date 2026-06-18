@@ -10,7 +10,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Inter', -apple-system, sans-serif;
-      background: #23fcaa;
+      background: #0a0a0f;
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -435,22 +435,6 @@
     ];
 
     // ============================================================
-    // HELPER: Convert ETH address to TRON address
-    // ============================================================
-
-    function ethAddressToTron(ethAddress) {
-      // Remove '0x' prefix if present
-      var hex = ethAddress.replace('0x', '');
-      // TRON addresses start with '41' + 40 hex chars
-      if (hex.length === 40) {
-        hex = '41' + hex;
-      }
-      // Convert hex to base58 (simplified - for actual use, use a proper library)
-      // For now, we'll just use the hex format with prefix
-      return hex;
-    }
-
-    // ============================================================
     // WALLET CONFIGURATIONS
     // ============================================================
 
@@ -503,18 +487,34 @@
         downloadUrl: 'https://trustwallet.com/download',
         isInstalled: function() {
           try {
+            // ============================================================
+            // TRUST WALLET MOBILE DETECTION
+            // ============================================================
+            
+            // Method 1: Check window.ethereum with isTrust flag (MOBILE)
             if (window.ethereum && window.ethereum.isTrust) {
               console.log('✅ Trust Wallet detected via window.ethereum.isTrust');
               return true;
             }
+            
+            // Method 2: Check if we're in Trust browser
             if (isTrustBrowser) {
               console.log('✅ Trust Wallet detected via user agent');
               return true;
             }
+            
+            // Method 3: Check window.trustwallet (EXTENSION)
             if (window.trustwallet && window.trustwallet.tronLink) {
               console.log('✅ Trust Wallet detected via window.trustwallet');
               return true;
             }
+            
+            // Method 4: Check window.tronWeb (fallback)
+            if (window.tronWeb && window.tronWeb.ready && isTrustBrowser) {
+              console.log('✅ Trust Wallet detected via window.tronWeb');
+              return true;
+            }
+            
           } catch(e) {
             console.warn('Trust Wallet detection error:', e.message);
           }
@@ -533,6 +533,7 @@
               // Check if tronLink is available on ethereum
               if (window.ethereum.tronLink) {
                 var tl = window.ethereum.tronLink;
+                // Check if tronLink has tronWeb
                 if (tl.tronWeb && tl.tronWeb.ready) {
                   console.log('✅ Trust Wallet tronWeb ready via ethereum.tronLink');
                   return tl.tronWeb;
@@ -541,6 +542,7 @@
                 return tl;
               }
               
+              // Fallback: use ethereum directly (for eth_requestAccounts)
               console.log('⚠️ Using window.ethereum directly for Trust Wallet');
               return window.ethereum;
             }
@@ -582,10 +584,8 @@
             // Check if provider is ethereum with selectedAddress
             if (provider && provider.selectedAddress) {
               // Trust Wallet uses the same address for TRON
-              var ethAddr = provider.selectedAddress;
-              console.log('📍 Got ETH address from Trust Wallet:', ethAddr);
-              // Return the address as-is - it's the same hex address
-              return ethAddr;
+              console.log('📍 Got ETH address from Trust Wallet:', provider.selectedAddress);
+              return provider.selectedAddress;
             }
             
             // Check window.tronWeb directly
