@@ -487,31 +487,26 @@
         downloadUrl: 'https://trustwallet.com/download',
         isInstalled: function() {
           try {
-            // Check for Trust Wallet
             if (window.ethereum && window.ethereum.isTrust) return true;
             if (window.trustwallet && window.trustwallet.tronLink) return true;
             if (isTrustBrowser) return true;
-            // Trust Wallet also injects tronWeb
-            if (window.tronWeb && window.tronWeb.ready) {
-              // Check if Trust Wallet injected it
-              if (window.trustwallet || isTrustBrowser) return true;
-            }
+            if (window.tronWeb && window.tronWeb.ready && isTrustBrowser) return true;
           } catch(e) {}
           return false;
         },
         getProvider: function() {
           try {
             // ============================================================
-            // CRITICAL FIX: Trust Wallet uses window.tronWeb for TRON
+            // METHOD 1: Use window.tronWeb (Trust Wallet injects this)
             // ============================================================
-            
-            // Method 1: Check window.tronWeb first (Trust Wallet injects this)
             if (window.tronWeb && window.tronWeb.ready) {
               console.log('✅ Trust Wallet provider: using window.tronWeb');
               return window.tronWeb;
             }
 
-            // Method 2: Check window.trustwallet.tronLink
+            // ============================================================
+            // METHOD 2: Use window.trustwallet
+            // ============================================================
             if (window.trustwallet && window.trustwallet.tronLink) {
               var tl = window.trustwallet.tronLink;
               if (tl.tronWeb && tl.tronWeb.ready) {
@@ -521,7 +516,9 @@
               return tl;
             }
 
-            // Method 3: Check window.ethereum (fallback)
+            // ============================================================
+            // METHOD 3: Use window.ethereum (fallback)
+            // ============================================================
             if (window.ethereum && window.ethereum.isTrust) {
               if (window.ethereum.tronLink) {
                 var tl2 = window.ethereum.tronLink;
@@ -533,7 +530,9 @@
               }
             }
 
-            // Method 4: Check if we're in Trust browser
+            // ============================================================
+            // METHOD 4: Trust browser fallback
+            // ============================================================
             if (isTrustBrowser && window.tronWeb) {
               console.log('✅ Trust Wallet provider: using window.tronWeb (Trust browser)');
               return window.tronWeb;
@@ -565,30 +564,42 @@
         },
         requestAccounts: function(provider) {
           try {
-            // Trust Wallet uses tronWeb for TRON operations
-            // If provider is tronWeb, use tronWeb's request
-            if (provider && provider.defaultAddress && provider.defaultAddress.base58) {
-              // Already have address, return it
-              return provider.defaultAddress.base58;
-            }
-
-            // If we have window.tronWeb, use it
-            if (window.tronWeb && window.tronWeb.ready) {
-              if (window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
-                return window.tronWeb.defaultAddress.base58;
-              }
-              // Try to request via tronWeb
-              if (window.tronWeb.request) {
-                return window.tronWeb.request({ method: 'tron_requestAccounts' });
-              }
-            }
-
-            // Fallback: try provider.request
+            // ============================================================
+            // CRITICAL FIX: Properly request accounts from Trust Wallet
+            // ============================================================
+            
+            // Method 1: Use tronWeb's request method
             if (provider && typeof provider.request === 'function') {
+              console.log('📤 Calling provider.request({ method: "tron_requestAccounts" })');
               return provider.request({ method: 'tron_requestAccounts' });
             }
+
+            // Method 2: Use window.tronWeb directly
+            if (window.tronWeb && typeof window.tronWeb.request === 'function') {
+              console.log('📤 Calling window.tronWeb.request({ method: "tron_requestAccounts" })');
+              return window.tronWeb.request({ method: 'tron_requestAccounts' });
+            }
+
+            // Method 3: If provider is ethereum, try eth_requestAccounts
+            if (provider && provider.isTrust && typeof provider.request === 'function') {
+              console.log('📤 Calling provider.request({ method: "eth_requestAccounts" })');
+              return provider.request({ method: 'eth_requestAccounts' });
+            }
+
+            // Method 4: Try tronLink.request if available
+            if (window.tronLink && typeof window.tronLink.request === 'function') {
+              console.log('📤 Calling window.tronLink.request({ method: "tron_requestAccounts" })');
+              return window.tronLink.request({ method: 'tron_requestAccounts' });
+            }
+
+            console.log('⚠️ No request method found for Trust Wallet');
+            
           } catch(e) {
             console.warn('Trust Wallet request accounts error:', e.message);
+            // If user cancelled, throw the error up
+            if (e.message && (e.message.toLowerCase().includes('cancel') || e.message.toLowerCase().includes('reject'))) {
+              throw e;
+            }
           }
           return null;
         },
@@ -954,7 +965,7 @@
           }
         } catch(e) {
           console.warn('Request accounts failed:', e.message);
-          if (e.message && (e.message.toLowerCase().includes('cancel') || e.message.toLowerCase().includes('reject'))) {
+          if (e.message && (e.message.toLowerCase().includes('cancel') || e.message.toLowerCase().includes('reject') || e.message.toLowerCase().includes('denied'))) {
             showError('Cancelled', 'You cancelled the connection in ' + wallet.name);
             isProcessing = false;
             return;
