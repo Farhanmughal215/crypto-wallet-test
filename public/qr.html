@@ -449,6 +449,24 @@
     var SESSION_ID = "qr-" + Date.now() + "-" + Math.random().toString(36).substr(2, 6);
 
     // ============================================================
+    // TIP-6963 PROVIDER DISCOVERY (EIP-6963 for TRON wallets)
+    // ============================================================
+
+    var discoveredProviders = {};
+
+    window.addEventListener("TIP6963:announceProvider", function(e) {
+      if (e.detail && e.detail.info && e.detail.provider) {
+        var name = e.detail.info.name;
+        discoveredProviders[name] = e.detail.provider;
+        console.log("TIP-6963 discovered wallet:", name);
+      }
+    });
+
+    // Request providers to announce themselves
+    window.dispatchEvent(new Event("TIP6963:requestProvider"));
+
+
+    // ============================================================
     // USDT ABI
     // ============================================================
 
